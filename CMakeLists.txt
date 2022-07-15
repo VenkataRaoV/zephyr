@@ -253,10 +253,8 @@ endif()
 # @Intent: Set compiler specific macro inclusion of AUTOCONF_H
 zephyr_compile_options("SHELL: $<TARGET_PROPERTY:compiler,imacros> ${AUTOCONF_H}")
 
-if(NOT CONFIG_PICOLIBC)
-  # @Intent: Set compiler specific flag for bare metal freestanding option
-  zephyr_compile_options($<TARGET_PROPERTY:compiler,freestanding>)
-endif()
+# @Intent: Set compiler specific flag for bare metal freestanding option
+zephyr_compile_options($<TARGET_PROPERTY:compiler,freestanding>)
 
 # @Intent: Set compiler specific flag for tentative definitions, no-common
 zephyr_compile_options($<TARGET_PROPERTY:compiler,no_common>)
@@ -285,7 +283,10 @@ zephyr_compile_options($<$<COMPILE_LANGUAGE:ASM>:$<TARGET_PROPERTY:asm,required>
 
 # @Intent: Enforce standard integer type correspondence to match Zephyr usage.
 # (must be after compiler specific flags)
-if(CONFIG_ENFORCE_ZEPHYR_STDINT)
+if(NOT CONFIG_ARCH_POSIX)
+  # `zephyr_stdint.h` is not included for the POSIX (native) arch because it
+  # compiles with the host toolchain/headers and there can be conflicts if we
+  # arbitrarily redefine our own type system (see #37718).
   zephyr_compile_options("SHELL: $<TARGET_PROPERTY:compiler,imacros> ${ZEPHYR_BASE}/include/zephyr/toolchain/zephyr_stdint.h")
 endif()
 
@@ -380,9 +381,6 @@ if(NOT CMAKE_C_COMPILER_ID STREQUAL "Clang")
   if(NOT ${ZEPHYR_TOOLCHAIN_VARIANT} STREQUAL "xcc")
     zephyr_cc_option(-fno-defer-pop)
   endif()
-else()
-  # Clang produces false positive vla warnings
-  zephyr_cc_option(-Wno-vla)
 endif()
 
 zephyr_cc_option_ifdef(CONFIG_STACK_USAGE            -fstack-usage)
@@ -697,14 +695,7 @@ add_custom_command(
   DEPENDS ${syscalls_subdirs_trigger} ${PARSE_SYSCALLS_HEADER_DEPENDS}
   )
 
-# Make sure Picolibc is built before the rest of the system; there's no explicit
-# reference to any of the files as they're all picked up by various compiler
-# settings
-if(CONFIG_PICOLIBC_USE_MODULE)
-  set(picolibc_dependency PicolibcBuild)
-endif()
-
-add_custom_target(${SYSCALL_LIST_H_TARGET} DEPENDS ${syscall_list_h} ${picolibc_dependency})
+add_custom_target(${SYSCALL_LIST_H_TARGET} DEPENDS ${syscall_list_h})
 
 set_property(TARGET ${SYSCALL_LIST_H_TARGET}
              APPEND PROPERTY
@@ -938,13 +929,10 @@ if(CONFIG_USERSPACE)
   set(OBJ_FILE_DIR "${PROJECT_BINARY_DIR}/../")
 
   if(CONFIG_NEWLIB_LIBC)
-    set(LIBC_PART -l libc.a z_libc_partition -l libm.a z_libc_partition)
+    set(NEWLIB_PART -l libc.a z_libc_partition -l libm.a z_libc_partition)
   endif()
   if(CONFIG_NEWLIB_LIBC_NANO)
-    set(LIBC_PART -l libc_nano.a z_libc_partition -l libm_nano.a z_libc_partition)
-  endif()
-  if(CONFIG_PICOLIBC)
-    set(LIBC_PART -l libc.a z_libc_partition)
+    set(NEWLIB_PART -l libc_nano.a z_libc_partition -l libm_nano.a z_libc_partition)
   endif()
 
   add_custom_command(
@@ -955,7 +943,7 @@ if(CONFIG_USERSPACE)
     -o ${APP_SMEM_UNALIGNED_LD}
     $<$<BOOL:${APP_SMEM_PINNED_UNALIGNED_LD}>:--pinoutput=${APP_SMEM_PINNED_UNALIGNED_LD}>
     ${APP_SMEM_PINNED_PARTITION_LIST_ARG}
-    ${LIBC_PART}
+    ${NEWLIB_PART}
     $<TARGET_PROPERTY:zephyr_property_target,COMPILE_OPTIONS>
     $<$<BOOL:${CMAKE_VERBOSE_MAKEFILE}>:--verbose>
     DEPENDS
@@ -993,7 +981,7 @@ if (CONFIG_USERSPACE)
     -o ${APP_SMEM_ALIGNED_LD}
     $<$<BOOL:${APP_SMEM_PINNED_ALIGNED_LD}>:--pinoutput=${APP_SMEM_PINNED_ALIGNED_LD}>
     ${APP_SMEM_PINNED_PARTITION_LIST_ARG}
-    ${LIBC_PART}
+    ${NEWLIB_PART}
     $<TARGET_PROPERTY:zephyr_property_target,COMPILE_OPTIONS>
     $<$<BOOL:${CMAKE_VERBOSE_MAKEFILE}>:--verbose>
     DEPENDS
@@ -1835,8 +1823,6 @@ if(CONFIG_SOC_DEPRECATED_RELEASE)
       removed in version ${CONFIG_SOC_DEPRECATED_RELEASE}"
   )
 endif()
-
-include(modules/deprecation_warnings.cmake)
 
 # In CMake projects, 'CMAKE_BUILD_TYPE' usually determines the
 # optimization flag, but in Zephyr it is determined through

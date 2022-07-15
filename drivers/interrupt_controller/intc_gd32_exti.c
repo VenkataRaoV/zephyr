@@ -8,10 +8,9 @@
 
 #include <zephyr/device.h>
 #include <zephyr/drivers/interrupt_controller/gd32_exti.h>
+#include <soc.h>
 #include <zephyr/sys/__assert.h>
 #include <zephyr/sys/util_macro.h>
-
-#include <gd32_exti.h>
 
 /** Unsupported line indicator */
 #define EXTI_NOTSUP 0xFFU

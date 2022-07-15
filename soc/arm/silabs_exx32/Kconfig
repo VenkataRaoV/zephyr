@@ -110,7 +110,7 @@ config SOC_GECKO_TRNG
 	  Set if the SoC has a True Random Number Generator (TRNG) module.
 
 config SOC_GECKO_EMU_DCDC
-	bool "SoC DC/DC regulator"
+	bool "Enable SoC DC/DC regulator"
 	select SOC_GECKO_EMU
 	help
 	  Enable the on chip DC/DC regulator
@@ -133,6 +133,44 @@ choice SOC_GECKO_EMU_DCDC_MODE
 	config SOC_GECKO_EMU_DCDC_MODE_BYPASS
 		bool "Bypass"
 endchoice
+
+config SOC_GECKO_DEV_INIT
+	bool
+	help
+	  Device initialization as per the sequence in simplicity studio.
+	  This is currently supported by efr32bg22 series.
+	  
+config SERIES_0
+	bool
+	help
+	  Series number 0.
+	  
+config SERIES_1
+	bool
+	help
+	  Series number 1.
+	  
+config SERIES_2
+	bool
+	help
+	  Series number 2.
+	  
+config SOC_GECKO_SEMAILBOX
+	bool
+	help
+	  TRNG is accessed through se mailbox
+
+config COUNTER_GECKO_STIMER
+	bool
+	help
+	  Enable counter driver based on RTCC module for Silicon Labs Gecko
+	  chips.
+
+config CRYPTO_ACC_GECKO_TRNG
+	bool
+	help
+	  Enable Entropy driver based on CRYPTO_ACC module for Silicon Labs Gecko
+	  chips.
 
 config SOC_GECKO_CMU
 	bool

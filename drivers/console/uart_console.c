@@ -32,7 +32,7 @@
 #include <zephyr/sys/atomic.h>
 #include <zephyr/sys/printk.h>
 #ifdef CONFIG_UART_CONSOLE_MCUMGR
-#include <zephyr/mgmt/mcumgr/serial.h>
+#include "mgmt/mcumgr/serial.h"
 #endif
 
 static const struct device *uart_console_dev;
@@ -96,11 +96,11 @@ static int console_out(int c)
 #endif
 
 #if defined(CONFIG_STDOUT_CONSOLE)
-extern void __stdout_hook_install(int (*hook)(int c));
+extern void __stdout_hook_install(int (*hook)(int));
 #endif
 
 #if defined(CONFIG_PRINTK)
-extern void __printk_hook_install(int (*fn)(int c));
+extern void __printk_hook_install(int (*fn)(int));
 #endif
 
 #if defined(CONFIG_CONSOLE_HANDLER)

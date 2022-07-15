@@ -278,8 +278,7 @@ enum net_verdict net_ipv4_input(struct net_pkt *pkt)
 		goto drop;
 	}
 
-	if (net_ipv4_is_addr_unspecified((struct in_addr *)hdr->src) &&
-	    !net_ipv4_is_addr_bcast(net_pkt_iface(pkt), (struct in_addr *)hdr->dst)) {
+	if (net_ipv4_is_addr_unspecified((struct in_addr *)hdr->src)) {
 		NET_DBG("DROP: src addr is %s", "unspecified");
 		goto drop;
 	}
@@ -319,8 +318,8 @@ enum net_verdict net_ipv4_input(struct net_pkt *pkt)
 	net_pkt_set_family(pkt, PF_INET);
 
 	NET_DBG("IPv4 packet received from %s to %s",
-		net_sprint_ipv4_addr(&hdr->src),
-		net_sprint_ipv4_addr(&hdr->dst));
+		log_strdup(net_sprint_ipv4_addr(&hdr->src)),
+		log_strdup(net_sprint_ipv4_addr(&hdr->dst)));
 
 	switch (hdr->proto) {
 	case IPPROTO_ICMP:

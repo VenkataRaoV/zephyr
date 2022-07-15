@@ -6,9 +6,9 @@
 
 #define DT_DRV_COMPAT nxp_lpc_rtc
 
-#include <zephyr/drivers/counter.h>
+#include <drivers/counter.h>
 #include <fsl_rtc.h>
-#include <zephyr/logging/log.h>
+#include <logging/log.h>
 
 LOG_MODULE_REGISTER(mcux_rtc, CONFIG_COUNTER_LOG_LEVEL);
 

@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <zephyr/syscall_handler.h>
-#include <zephyr/drivers/counter.h>
+#include <syscall_handler.h>
+#include <drivers/counter.h>
 
 /* For those APIs that just take one argument which is a counter driver
  * instance and return an integral value

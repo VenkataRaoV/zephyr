@@ -125,11 +125,16 @@ enum fxos_trigger_type {
 };
 
 struct fxos8700_config {
-	struct i2c_dt_spec i2c;
+	char *i2c_name;
 #ifdef CONFIG_FXOS8700_TRIGGER
-	struct gpio_dt_spec int_gpio;
+	char *gpio_name;
+	uint8_t gpio_pin;
+	gpio_dt_flags_t gpio_flags;
 #endif
-	struct gpio_dt_spec reset_gpio;
+	uint8_t i2c_address;
+	char *reset_name;
+	uint8_t reset_pin;
+	gpio_dt_flags_t reset_flags;
 	enum fxos8700_mode mode;
 	enum fxos8700_power_mode power_mode;
 	uint8_t range;
@@ -150,9 +155,12 @@ struct fxos8700_config {
 };
 
 struct fxos8700_data {
+	const struct device *i2c;
 	struct k_sem sem;
 #ifdef CONFIG_FXOS8700_TRIGGER
 	const struct device *dev;
+	const struct device *gpio;
+	uint8_t gpio_pin;
 	struct gpio_callback gpio_cb;
 	sensor_trigger_handler_t drdy_handler;
 #endif

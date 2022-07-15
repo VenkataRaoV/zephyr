@@ -27,7 +27,6 @@ set_compiler_property(PROPERTY warning_base
                       -Wformat-security
                       -Wno-format-zero-length
                       -Wno-main
-                      -Wno-unused-but-set-variable
                       -Wno-typedef-redefinition
 )
 

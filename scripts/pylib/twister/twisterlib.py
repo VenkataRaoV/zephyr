@@ -28,7 +28,6 @@ import xml.etree.ElementTree as ET
 import logging
 from pathlib import Path
 from distutils.spawn import find_executable
-import colorama
 from colorama import Fore
 import pickle
 import platform
@@ -670,7 +669,7 @@ class BinaryHandler(Handler):
         else:
             self.instance.status = "failed"
             self.instance.reason = "Timeout"
-            self.instance.add_missing_case_status("blocked", "Timeout")
+            self.instance.add_missing_testscases("blocked", "Timeout")
 
         self._final_handle_actions(harness, handler_time)
 
@@ -847,8 +846,6 @@ class DeviceHandler(Handler):
                         command.append("--tool-opt=-SelectEmuBySN  %s" % (board_id))
                     elif runner == "stm32cubeprogrammer":
                         command.append("--tool-opt=sn=%s" % (board_id))
-                    elif runner == "intel_adsp":
-                        command.append("--pty")
 
                     # Receive parameters from an runner_params field
                     # of the specified hardware map file.
@@ -884,7 +881,7 @@ class DeviceHandler(Handler):
             self.instance.reason = "Serial Device Error"
             logger.error("Serial device error: %s" % (str(e)))
 
-            self.instance.add_missing_case_status("blocked", "Serial Device Error")
+            self.instance.add_missing_testscases("blocked", "Serial Device Error")
             if serial_pty and ser_pty_process:
                 ser_pty_process.terminate()
                 outs, errs = ser_pty_process.communicate()
@@ -897,15 +894,6 @@ class DeviceHandler(Handler):
             return
 
         ser.flush()
-
-        # turns out the ser.flush() is not enough to clear serial leftover from last case
-        # explicitly readline() can do it reliably
-        old_timeout = ser.timeout
-        ser.timeout = 1 # wait for 1s if no serial output
-        leftover_lines = ser.readlines(1000) # or read 1000 lines at most
-        for line in leftover_lines:
-            logger.debug(f"leftover log of previous test: {line}")
-        ser.timeout = old_timeout
 
         harness_name = self.instance.testsuite.harness.capitalize()
         harness_import = HarnessImporter(harness_name)
@@ -924,7 +912,7 @@ class DeviceHandler(Handler):
             stdout = stderr = None
             with subprocess.Popen(command, stderr=subprocess.PIPE, stdout=subprocess.PIPE) as proc:
                 try:
-                    (stdout, stderr) = proc.communicate(timeout=60)
+                    (stdout, stderr) = proc.communicate(timeout=30)
                     # ignore unencodable unicode chars
                     logger.debug(stdout.decode(errors = "ignore"))
 
@@ -935,7 +923,6 @@ class DeviceHandler(Handler):
                             dlog_fp.write(stderr.decode())
                         os.write(write_pipe, b'x')  # halt the thread
                 except subprocess.TimeoutExpired:
-                    logger.warning("Flash operation timed out.")
                     proc.kill()
                     (stdout, stderr) = proc.communicate()
                     self.instance.status = "error"
@@ -967,20 +954,23 @@ class DeviceHandler(Handler):
 
         handler_time = time.time() - start_time
 
+        if self.instance.status == "error":
+            self.instance.add_missing_testscases("blocked", self.instance.reason)
+
         if harness.is_pytest:
             harness.pytest_run(self.log)
 
-        self.instance.execution_time = handler_time
+        # sometimes a test instance hasn't been executed successfully with no
+        # status, in order to include it into final report,
+        # so fill the results as blocked
+        self.instance.add_missing_testscases("blocked")
+
         if harness.state:
             self.instance.status = harness.state
             if harness.state == "failed":
                 self.instance.reason = "Failed"
         else:
-            self.instance.status = "error"
-            self.instance.reason = "No Console Output(Timeout)"
-
-        if self.instance.status == "error":
-            self.instance.add_missing_case_status("blocked", self.instance.reason)
+            self.instance.execution_time = handler_time
 
         self._final_handle_actions(harness, handler_time)
 
@@ -1250,7 +1240,7 @@ class QEMUHandler(Handler):
                 self.instance.reason = "Timeout"
             else:
                 self.instance.reason = "Exited with {}".format(self.returncode)
-            self.instance.add_missing_case_status("blocked")
+            self.instance.add_missing_testscases("blocked")
 
         self._final_handle_actions(harness, 0)
 
@@ -1714,7 +1704,6 @@ class ScanPathResult:
                  sorted(other.ztest_suite_names)))
 
 class TestCase(DisablePyTestCollectionMixin):
-
     def __init__(self, name=None, testsuite=None):
         self.duration = 0
         self.name = name
@@ -1722,7 +1711,6 @@ class TestCase(DisablePyTestCollectionMixin):
         self.reason = None
         self.testsuite = testsuite
         self.output = ""
-        self.freeform = False
 
     def __lt__(self, other):
         return self.name < other.name
@@ -1792,9 +1780,8 @@ class TestSuite(DisablePyTestCollectionMixin):
         self.ztest_suite_names = []
 
 
-    def add_testcase(self, name, freeform=False):
+    def add_testcase(self, name):
         tc = TestCase(name=name, testsuite=self)
-        tc.freeform = freeform
         self.testcases.append(tc)
 
     @staticmethod
@@ -2070,7 +2057,7 @@ Tests should reference the category and subsystem with a dot as a separator.
                 self.add_testcase(name)
 
             if not subcases:
-                self.add_testcase(self.id, freeform=True)
+                self.add_testcase(self.id)
 
         self.ztest_suite_names = ztest_suite_names
 
@@ -2108,9 +2095,7 @@ class TestInstance(DisablePyTestCollectionMixin):
         self.platform = platform
 
         self.status = None
-        self.filters = []
         self.reason = "Unknown"
-        self.filter_type = None
         self.metrics = dict()
         self.handler = None
         self.outdir = outdir
@@ -2127,7 +2112,7 @@ class TestInstance(DisablePyTestCollectionMixin):
     # Fix an issue with copying objects from testsuite, need better solution.
     def init_cases(self):
         for c in self.testsuite.testcases:
-            self.add_testcase(c.name, freeform=c.freeform)
+            self.add_testcase(c.name)
 
     def _get_run_id(self):
         """ generate run id from instance unique identifier and a random
@@ -2138,14 +2123,7 @@ class TestInstance(DisablePyTestCollectionMixin):
         hash_object.update(random_str)
         return hash_object.hexdigest()
 
-    def add_filter(self, reason, filter_type):
-        self.filters.append({'type': filter_type, 'reason': reason })
-        self.status = "filtered"
-        self.reason = reason
-        self.filter_type = filter_type
-
-
-    def add_missing_case_status(self, status, reason=None):
+    def add_missing_testscases(self, status, reason=None):
         for case in self.testcases:
             if not case.status:
                 case.status = status
@@ -2171,9 +2149,8 @@ class TestInstance(DisablePyTestCollectionMixin):
             tc.reason = reason
         return tc
 
-    def add_testcase(self, name, freeform=False):
+    def add_testcase(self, name):
         tc = TestCase(name=name)
-        tc.freeform = freeform
         self.testcases.append(tc)
         return tc
 
@@ -2361,7 +2338,7 @@ class CMake():
 
             self.instance.status = "passed"
             if not self.instance.run:
-                self.instance.add_missing_case_status("skipped", "Test was built only")
+                self.instance.add_missing_testscases("skipped", "Test was built only")
             results = {'msg': msg, "returncode": p.returncode, "instance": self.instance}
 
             if out:
@@ -2720,7 +2697,7 @@ class ProjectBuilder(FilterBuilder):
                     self.instance.status = "filtered"
                     self.instance.reason = "runtime filter"
                     results.skipped_runtime += 1
-                    self.instance.add_missing_case_status("skipped")
+                    self.instance.add_missing_testscases("skipped")
                     pipeline.put({"op": "report", "test": self.instance})
                 else:
                     pipeline.put({"op": "build", "test": self.instance})
@@ -2737,10 +2714,10 @@ class ProjectBuilder(FilterBuilder):
                 # due to ram/rom overflow.
                 if  self.instance.status == "skipped":
                     results.skipped_runtime += 1
-                    self.instance.add_missing_case_status("skipped", self.instance.reason)
+                    self.instance.add_missing_testscases("skipped", self.instance.reason)
 
                 if res.get('returncode', 1) > 0:
-                    self.instance.add_missing_case_status("blocked", self.instance.reason)
+                    self.instance.add_missing_testscases("blocked", self.instance.reason)
                     pipeline.put({"op": "report", "test": self.instance})
                 else:
                     pipeline.put({"op": "gather_metrics", "test": self.instance})
@@ -2795,11 +2772,6 @@ class ProjectBuilder(FilterBuilder):
             'build.log',
             'device.log',
             'recording.csv',
-            # below ones are needed to make --test-only work as well
-            'Makefile',
-            'CMakeCache.txt',
-            'build.ninja',
-            'CMakeFiles/rules.ninja'
             ]
 
         allow += additional_keep
@@ -3013,17 +2985,6 @@ class ProjectBuilder(FilterBuilder):
 
             instance.metrics["handler_time"] = instance.execution_time
 
-class Filters:
-    # filters provided on command line by the user/tester
-    CMD_LINE = 'command line filter'
-    # filters in the testsuite yaml definition
-    TESTSUITE = 'testsuite filter'
-    # filters realted to platform definition
-    PLATFORM = 'Platform related filter'
-    # in case a testcase was quarantined.
-    QUARENTINE = 'Quarantine filter'
-
-
 class TestPlan(DisablePyTestCollectionMixin):
     config_re = re.compile('(CONFIG_[A-Za-z0-9_]+)[=]\"?([^\"]*)\"?$')
     dt_re = re.compile('([A-Za-z0-9_]+)[=]\"?([^\"]*)\"?$')
@@ -3112,6 +3073,7 @@ class TestPlan(DisablePyTestCollectionMixin):
         self.filtered_platforms = []
         self.default_platforms = []
         self.outdir = os.path.abspath(outdir)
+        self.discards = {}
         self.load_errors = 0
         self.instances = dict()
 
@@ -3570,6 +3532,7 @@ class TestPlan(DisablePyTestCollectionMixin):
 
         toolchain = self.get_toolchain()
 
+        discards = {}
         platform_filter = kwargs.get('platform')
         exclude_platform = kwargs.get('exclude_platform', [])
         testsuite_filter = kwargs.get('run_individual_tests', [])
@@ -3663,7 +3626,7 @@ class TestPlan(DisablePyTestCollectionMixin):
                                 instance.run = True
 
                 if not force_platform and plat.name in exclude_platform:
-                    instance.add_filter("Platform is excluded on command line.", Filters.CMD_LINE)
+                    discards[instance] = discards.get(instance, "Platform is excluded on command line.")
 
                 if (plat.arch == "unit") != (ts.type == "unit"):
                     # Discard silently
@@ -3671,89 +3634,90 @@ class TestPlan(DisablePyTestCollectionMixin):
 
                 if ts.modules and self.modules:
                     if not set(ts.modules).issubset(set(self.modules)):
-                        instance.add_filter(f"one or more required modules not available: {','.join(ts.modules)}", Filters.TESTSUITE)
+                        discards[instance] = discards.get(instance, f"one or more required module not available: {','.join(ts.modules)}")
 
                 if runnable and not instance.run:
-                    instance.add_filter("Not runnable on device", Filters.PLATFORM)
+                    discards[instance] = discards.get(instance, "Not runnable on device")
 
                 if self.integration and ts.integration_platforms and plat.name not in ts.integration_platforms:
-                    instance.add_filter("Not part of integration platforms", Filters.TESTSUITE)
+                    discards[instance] = discards.get(instance, "Not part of integration platforms")
 
                 if ts.skip:
-                    instance.add_filter("Skip filter", Filters.TESTSUITE)
+                    discards[instance] = discards.get(instance, "Skip filter")
 
                 if tag_filter and not ts.tags.intersection(tag_filter):
-                    instance.add_filter("Command line testsuite tag filter", Filters.CMD_LINE)
+                    discards[instance] = discards.get(instance, "Command line testsuite tag filter")
 
                 if exclude_tag and ts.tags.intersection(exclude_tag):
-                    instance.add_filter("Command line testsuite exclude filter", Filters.CMD_LINE)
+                    discards[instance] = discards.get(instance, "Command line testsuite exclude filter")
 
                 if testsuite_filter and ts_name not in testsuite_filter:
-                    instance.add_filter("TestSuite name filter", Filters.CMD_LINE)
+                    discards[instance] = discards.get(instance, "TestSuite name filter")
 
                 if arch_filter and plat.arch not in arch_filter:
-                    instance.add_filter("Command line testsuite arch filter", Filters.CMD_LINE)
+                    discards[instance] = discards.get(instance, "Command line testsuite arch filter")
 
                 if not force_platform:
 
                     if ts.arch_allow and plat.arch not in ts.arch_allow:
-                        instance.add_filter("Not in test case arch allow list", Filters.TESTSUITE)
+                        discards[instance] = discards.get(instance, "Not in test case arch allow list")
 
                     if ts.arch_exclude and plat.arch in ts.arch_exclude:
-                        instance.add_filter("In test case arch exclude", Filters.TESTSUITE)
+                        discards[instance] = discards.get(instance, "In test case arch exclude")
 
                     if ts.platform_exclude and plat.name in ts.platform_exclude:
-                        instance.add_filter("In test case platform exclude", Filters.TESTSUITE)
+                        discards[instance] = discards.get(instance, "In test case platform exclude")
 
                 if ts.toolchain_exclude and toolchain in ts.toolchain_exclude:
-                    instance.add_filter("In test case toolchain exclude", Filters.TESTSUITE)
+                    discards[instance] = discards.get(instance, "In test case toolchain exclude")
 
                 if platform_filter and plat.name not in platform_filter:
-                    instance.add_filter("Command line platform filter", Filters.CMD_LINE)
+                    discards[instance] = discards.get(instance, "Command line platform filter")
 
                 if ts.platform_allow and plat.name not in ts.platform_allow:
-                    instance.add_filter("Not in testsuite platform allow list", Filters.TESTSUITE)
+                    discards[instance] = discards.get(instance, "Not in testsuite platform allow list")
 
                 if ts.platform_type and plat.type not in ts.platform_type:
-                    instance.add_filter("Not in testsuite platform type list", Filters.TESTSUITE)
+                    discards[instance] = discards.get(instance, "Not in testsuite platform type list")
 
                 if ts.toolchain_allow and toolchain not in ts.toolchain_allow:
-                    instance.add_filter("Not in testsuite toolchain allow list", Filters.TESTSUITE)
+                    discards[instance] = discards.get(instance, "Not in testsuite toolchain allow list")
 
                 if not plat.env_satisfied:
-                    instance.add_filter("Environment ({}) not satisfied".format(", ".join(plat.env)), Filters.PLATFORM)
+                    discards[instance] = discards.get(instance, "Environment ({}) not satisfied".format(", ".join(plat.env)))
 
                 if not force_toolchain \
                         and toolchain and (toolchain not in plat.supported_toolchains) \
                         and "host" not in plat.supported_toolchains \
                         and ts.type != 'unit':
-                    instance.add_filter("Not supported by the toolchain", Filters.PLATFORM)
+                    discards[instance] = discards.get(instance, "Not supported by the toolchain")
 
                 if plat.ram < ts.min_ram:
-                    instance.add_filter("Not enough RAM", Filters.PLATFORM)
+                    discards[instance] = discards.get(instance, "Not enough RAM")
 
                 if ts.depends_on:
                     dep_intersection = ts.depends_on.intersection(set(plat.supported))
                     if dep_intersection != set(ts.depends_on):
-                        instance.add_filter("No hardware support", Filters.PLATFORM)
+                        discards[instance] = discards.get(instance, "No hardware support")
 
                 if plat.flash < ts.min_flash:
-                    instance.add_filter("Not enough FLASH", Filters.PLATFORM)
+                    discards[instance] = discards.get(instance, "Not enough FLASH")
 
                 if set(plat.ignore_tags) & ts.tags:
-                    instance.add_filter("Excluded tags per platform (exclude_tags)", Filters.PLATFORM)
+                    discards[instance] = discards.get(instance, "Excluded tags per platform (exclude_tags)")
 
                 if plat.only_tags and not set(plat.only_tags) & ts.tags:
-                    instance.add_filter("Excluded tags per platform (only_tags)", Filters.PLATFORM)
+                    discards[instance] = discards.get(instance, "Excluded tags per platform (only_tags)")
 
                 test_configuration = ".".join([instance.platform.name,
                                                instance.testsuite.id])
                 # skip quarantined tests
                 if test_configuration in self.quarantine and not self.quarantine_verify:
-                    instance.add_filter(f"Quarantine: {self.quarantine[test_configuration]}", Filters.QUARENTINE)
+                    discards[instance] = discards.get(instance,
+                                                      f"Quarantine: {self.quarantine[test_configuration]}")
                 # run only quarantined test to verify their statuses (skip everything else)
                 if self.quarantine_verify and test_configuration not in self.quarantine:
-                    instance.add_filter("Not under quarantine", Filters.QUARENTINE)
+                    discards[instance] = discards.get(instance, "Not under quarantine")
 
                 # if nothing stopped us until now, it means this configuration
                 # needs to be added.
@@ -3785,32 +3749,40 @@ class TestPlan(DisablePyTestCollectionMixin):
             elif emulation_platforms:
                 self.add_instances(instance_list)
                 for instance in list(filter(lambda inst: not inst.platform.simulation != 'na', instance_list)):
-                    instance.add_filter("Not an emulated platform", Filters.PLATFORM)
+                    discards[instance] = discards.get(instance, "Not an emulated platform")
             else:
                 self.add_instances(instance_list)
 
         for _, case in self.instances.items():
             case.create_overlay(case.platform, self.enable_asan, self.enable_ubsan, self.enable_coverage, self.coverage_platform)
 
+        self.discards = discards
         self.selected_platforms = set(p.platform.name for p in self.instances.values())
 
-        filtered_instances = list(filter(lambda item:  item.status == "filtered", self.instances.values()))
-        for filtered_instance in filtered_instances:
+        remove_from_discards = [] # configurations to be removed from discards.
+        for instance in self.discards:
+            instance.reason = self.discards[instance]
             # If integration mode is on all skips on integration_platforms are treated as errors.
-            if self.integration and filtered_instance.platform.name in filtered_instance.testsuite.integration_platforms \
-                and "Quarantine" not in filtered_instance.reason:
-                # Do not treat this as error if filter type is command line
-                filters = {t['type'] for t in filtered_instance.filters}
-                if Filters.CMD_LINE in filters:
-                    continue
-                filtered_instance.status = "error"
-                filtered_instance.reason += " but is one of the integration platforms"
-                self.instances[filtered_instance.name] = filtered_instance
+            if self.integration and instance.platform.name in instance.testsuite.integration_platforms \
+                and "Quarantine" not in instance.reason:
+                instance.status = "error"
+                instance.reason += " but is one of the integration platforms"
+                self.instances[instance.name] = instance
+                # Such configuration has to be removed from discards to make sure it won't get skipped
+                remove_from_discards.append(instance)
+            else:
+                instance.status = "filtered"
 
-            filtered_instance.add_missing_case_status(filtered_instance.status)
+            instance.add_missing_testscases(instance.status)
+
+        # Remove from discards configurations that must not be discarded
+        # (e.g. integration_platforms when --integration was used)
+        for instance in remove_from_discards:
+            del self.discards[instance]
 
         self.filtered_platforms = set(p.platform.name for p in self.instances.values()
                                       if p.status != "skipped" )
+
 
     def add_instances(self, instance_list):
         for instance in instance_list:
@@ -4151,6 +4123,7 @@ class TestPlan(DisablePyTestCollectionMixin):
             if instance.status is not None:
                 suite["execution_time"] =  f"{float(handler_time):.2f}"
 
+
             testcases = []
 
             if len(instance.testcases) == 1:
@@ -4159,12 +4132,6 @@ class TestPlan(DisablePyTestCollectionMixin):
                 single_case_duration = 0
 
             for case in instance.testcases:
-                # freeform was set when no sub testcases were parsed, however,
-                # if we discover those at runtime, the fallback testcase wont be
-                # needed anymore and can be removed from the output, it does
-                # not have a status and would otherwise be reported as skipped.
-                if case.freeform and case.status is None and len(instance.testcases) > 1:
-                    continue
                 testcase = {}
                 testcase['identifier'] = case.name
                 if instance.status:
@@ -4747,6 +4714,3 @@ class HardwareMap:
                 table.append([platform, p.id, p.serial])
 
         print(tabulate(table, headers=header, tablefmt="github"))
-
-def init(colorama_strip):
-    colorama.init(strip=colorama_strip)

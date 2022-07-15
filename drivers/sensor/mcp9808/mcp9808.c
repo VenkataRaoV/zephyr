@@ -22,9 +22,11 @@ LOG_MODULE_REGISTER(MCP9808, CONFIG_SENSOR_LOG_LEVEL);
 
 int mcp9808_reg_read(const struct device *dev, uint8_t reg, uint16_t *val)
 {
+	struct mcp9808_data *data = dev->data;
 	const struct mcp9808_config *cfg = dev->config;
-	int rc = i2c_write_read_dt(&cfg->i2c, &reg, sizeof(reg), val,
-				   sizeof(*val));
+	int rc = i2c_write_read(data->i2c_master, cfg->i2c_addr,
+				&reg, sizeof(reg),
+				val, sizeof(*val));
 
 	if (rc == 0) {
 		*val = sys_be16_to_cpu(*val);
@@ -36,6 +38,7 @@ int mcp9808_reg_read(const struct device *dev, uint8_t reg, uint16_t *val)
 int mcp9808_reg_write_16bit(const struct device *dev, uint8_t reg,
 			    uint16_t val)
 {
+	struct mcp9808_data *data = dev->data;
 	const struct mcp9808_config *cfg = dev->config;
 
 	uint8_t buf[3];
@@ -43,19 +46,20 @@ int mcp9808_reg_write_16bit(const struct device *dev, uint8_t reg,
 	buf[0] = reg;
 	sys_put_be16(val, &buf[1]);
 
-	return i2c_write_dt(&cfg->i2c, buf, sizeof(buf));
+	return i2c_write(data->i2c_master, buf, sizeof(buf), cfg->i2c_addr);
 }
 
 int mcp9808_reg_write_8bit(const struct device *dev, uint8_t reg,
 			   uint8_t val)
 {
+	struct mcp9808_data *data = dev->data;
 	const struct mcp9808_config *cfg = dev->config;
 	uint8_t buf[2] = {
 		reg,
 		val,
 	};
 
-	return i2c_write_dt(&cfg->i2c, buf, sizeof(buf));
+	return i2c_write(data->i2c_master, buf, sizeof(buf), cfg->i2c_addr);
 }
 
 static int mcp9808_set_temperature_resolution(const struct device *dev,
@@ -101,12 +105,14 @@ static const struct sensor_driver_api mcp9808_api_funcs = {
 
 int mcp9808_init(const struct device *dev)
 {
+	struct mcp9808_data *data = dev->data;
 	const struct mcp9808_config *cfg = dev->config;
 	int rc = 0;
 
-	if (!device_is_ready(cfg->i2c.bus)) {
-		LOG_ERR("Bus device is not ready");
-		return -ENODEV;
+	data->i2c_master = device_get_binding(cfg->i2c_bus);
+	if (!data->i2c_master) {
+		LOG_ERR("mcp9808: i2c master not found: %s", cfg->i2c_bus);
+		return -EINVAL;
 	}
 
 	rc = mcp9808_set_temperature_resolution(dev, cfg->resolution);
@@ -124,10 +130,13 @@ int mcp9808_init(const struct device *dev)
 
 static struct mcp9808_data mcp9808_data;
 static const struct mcp9808_config mcp9808_cfg = {
-	.i2c = I2C_DT_SPEC_INST_GET(0),
+	.i2c_bus = DT_INST_BUS_LABEL(0),
+	.i2c_addr = DT_INST_REG_ADDR(0),
 	.resolution = DT_INST_PROP(0, resolution),
 #ifdef CONFIG_MCP9808_TRIGGER
-	.int_gpio = GPIO_DT_SPEC_INST_GET(0, int_gpios),
+	.alert_pin = DT_INST_GPIO_PIN(0, int_gpios),
+	.alert_flags = DT_INST_GPIO_FLAGS(0, int_gpios),
+	.alert_controller = DT_INST_GPIO_LABEL(0, int_gpios),
 #endif /* CONFIG_MCP9808_TRIGGER */
 };
 

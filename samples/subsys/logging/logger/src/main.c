@@ -176,14 +176,17 @@ static void severity_levels_showcase(void)
 
 /**
  * @brief Function demonstrates how transient strings can be logged.
+ *
+ * Logger ensures that allocated buffers are freed when log message is
+ * processed.
  */
-static void log_transient_string_showcase(void)
+static void log_strdup_showcase(void)
 {
 	char transient_str[] = "transient_string";
 
 	printk("String logging showcase.\n");
 
-	LOG_INF("Logging transient string:%s", transient_str);
+	LOG_INF("Logging transient string:%s", log_strdup(transient_str));
 
 	/* Overwrite transient string to show that the logger has a copy. */
 	transient_str[0] = '\0';
@@ -207,13 +210,12 @@ static void performance_showcase(void)
 {
 /* Arbitrary limit when LOG_MODE_IMMEDIATE is enabled. */
 #define LOG_IMMEDIATE_TEST_MESSAGES_LIMIT 50
-#define MSG_SIZE (sizeof(struct log_msg) + 2 * sizeof(void *) + sizeof(int))
 
 	volatile uint32_t current_timestamp;
 	volatile uint32_t start_timestamp;
 	uint32_t limit = COND_CODE_1(CONFIG_LOG_MODE_IMMEDIATE,
 			     (LOG_IMMEDIATE_TEST_MESSAGES_LIMIT),
-			     (CONFIG_LOG_BUFFER_SIZE / MSG_SIZE));
+			     (CONFIG_LOG_BUFFER_SIZE / sizeof(struct log_msg)));
 	uint32_t per_sec;
 	uint32_t cnt = 0U;
 	uint32_t window = 2U;
@@ -307,7 +309,7 @@ static void log_demo_thread(void *p1, void *p2, void *p3)
 
 	wait_on_log_flushed();
 
-	log_transient_string_showcase();
+	log_strdup_showcase();
 
 	severity_levels_showcase();
 

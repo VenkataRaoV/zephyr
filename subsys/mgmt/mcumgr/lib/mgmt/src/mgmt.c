@@ -22,6 +22,12 @@ mgmt_streamer_alloc_rsp(struct mgmt_streamer *streamer, const void *req)
 	return streamer->cfg->alloc_rsp(req, streamer->cb_arg);
 }
 
+void
+mgmt_streamer_trim_front(struct mgmt_streamer *streamer, void *buf, size_t len)
+{
+	streamer->cfg->trim_front(buf, len, streamer->cb_arg);
+}
+
 int
 mgmt_streamer_write_hdr(struct mgmt_streamer *streamer, const struct mgmt_hdr *hdr)
 {
@@ -132,7 +138,7 @@ mgmt_write_rsp_status(struct mgmt_ctxt *ctxt, int errcode)
 	}
 #endif
 
-	return ok ? MGMT_ERR_EOK : MGMT_ERR_EMSGSIZE;
+	return ok ? MGMT_ERR_EOK : MGMT_ERR_ENOMEM;
 }
 
 void

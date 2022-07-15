@@ -8,9 +8,7 @@
 
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/interrupt_controller/gd32_exti.h>
-
-#include <gd32_gpio.h>
-#include <gd32_rcu.h>
+#include <soc.h>
 
 #include "gpio_utils.h"
 

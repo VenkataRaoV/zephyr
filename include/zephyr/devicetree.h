@@ -771,10 +771,9 @@
 /**
  * @brief Get a string property's value as a token.
  *
- * This removes "the quotes" from a string property's value,
- * converting any non-alphanumeric characters to underscores. This can
- * be useful, for example, when programmatically using the value to
- * form a C variable or code.
+ * This removes "the quotes" from string-valued properties, and converts
+ * non-alphanumeric characters to underscores. That can be useful, for example,
+ * when programmatically using the value to form a C variable or code.
  *
  * DT_STRING_TOKEN() can only be used for properties with string type.
  *
@@ -817,7 +816,7 @@
  *   123_foo as a token.
  *
  * @param node_id node identifier
- * @param prop lowercase-and-underscores property name
+ * @param prop lowercase-and-underscores property string name
  * @return the value of @p prop as a token, i.e. without any quotes
  *         and with special characters converted to underscores
  */
@@ -835,7 +834,7 @@
  * @param node_id node identifier
  * @param prop lowercase-and-underscores property name
  * @param default_value a fallback value to expand to
- * @return the property's value as a token, or @p default_value
+ * @return the property's value or default_value
  */
 #define DT_STRING_TOKEN_OR(node_id, prop, default_value) \
 	COND_CODE_1(DT_NODE_HAS_PROP(node_id, prop), \
@@ -844,10 +843,9 @@
 /**
  * @brief Like DT_STRING_TOKEN(), but uppercased.
  *
- * This removes "the quotes" from a string property's value,
- * converting any non-alphanumeric characters to underscores, and
- * capitalizing the result. This can be useful, for example, when
- * programmatically using the value to form a C variable or code.
+ * This removes "the quotes and capitalize" from string-valued properties, and
+ * converts non-alphanumeric characters to underscores. That can be useful, for
+ * example, when programmatically using the value to form a C variable or code.
  *
  * DT_STRING_UPPER_TOKEN() can only be used for properties with string type.
  *
@@ -887,7 +885,7 @@
  *   an underscore.
  *
  * @param node_id node identifier
- * @param prop lowercase-and-underscores property name
+ * @param prop lowercase-and-underscores property string name
  * @return the value of @p prop as an uppercased token, i.e. without
  *         any quotes and with special characters converted to underscores
  */
@@ -905,8 +903,9 @@
  * @param node_id node identifier
  * @param prop lowercase-and-underscores property name
  * @param default_value a fallback value to expand to
- * @return the property's value as an uppercased token,
- *         or @p default_value
+ * @return if @p prop exists, its value as an uppercased token, i.e. without
+ *         any quotes and with special characters converted to underscores.
+ *         Othewise @p default_value
  */
 #define DT_STRING_UPPER_TOKEN_OR(node_id, prop, default_value) \
 	COND_CODE_1(DT_NODE_HAS_PROP(node_id, prop), \
@@ -2516,9 +2515,7 @@
 #define DT_INST_LABEL(inst) DT_INST_PROP(inst, label)
 
 /**
- * @brief Get a DT_DRV_COMPAT instance's string property's value as a
- *        token.
- *
+ * @brief Get a string property's value as a token.
  * @param inst instance number
  * @param prop lowercase-and-underscores property string name
  * @return the value of @p prop as a token, i.e. without any quotes
@@ -2796,7 +2793,9 @@
  * @param inst instance number
  * @param name lowercase-and-underscores property name
  * @param default_value a fallback value to expand to
- * @return the property's value as an uppercased token, or @p default_value
+ * @return if @p prop exists, its value as an uppercased token, i.e. without
+ *         any quotes and with special characters converted to underscores.
+ *         Othewise @p default_value
  */
 #define DT_INST_STRING_UPPER_TOKEN_OR(inst, name, default_value) \
 	DT_STRING_UPPER_TOKEN_OR(DT_DRV_INST(inst), name, default_value)

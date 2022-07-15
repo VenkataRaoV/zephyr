@@ -44,9 +44,7 @@
 	 BT_LE_ADV_OPT_ONE_TIME | ADV_OPT_USE_IDENTITY |                       \
 	 ADV_OPT_USE_NAME)
 
-#define FAST_ADV_TIME (60LL * MSEC_PER_SEC)
-
-static int64_t fast_adv_timestamp;
+static bool prov_fast_adv;
 
 static int gatt_send(struct bt_conn *conn,
 		     const void *data, uint16_t len,
@@ -190,7 +188,7 @@ int bt_mesh_pb_gatt_srv_enable(void)
 
 	(void)bt_gatt_service_register(&prov_svc);
 	service_registered = true;
-	fast_adv_timestamp = k_uptime_get();
+	prov_fast_adv = true;
 
 	return 0;
 }
@@ -279,12 +277,11 @@ int bt_mesh_pb_gatt_srv_adv_start(void)
 	};
 	struct bt_data prov_sd[1];
 	size_t prov_sd_len;
-	int64_t timestamp = fast_adv_timestamp;
-	int64_t elapsed_time = k_uptime_delta(&timestamp);
+	int err;
 
 	prov_sd_len = gatt_prov_adv_create(prov_sd);
 
-	if (elapsed_time > FAST_ADV_TIME) {
+	if (!prov_fast_adv) {
 		struct bt_le_adv_param slow_adv_param = {
 			.options = ADV_OPT_PROV,
 			ADV_SLOW_INT,
@@ -294,12 +291,15 @@ int bt_mesh_pb_gatt_srv_adv_start(void)
 					      ARRAY_SIZE(prov_ad), prov_sd, prov_sd_len);
 	}
 
-	BT_DBG("remaining fast adv time (%lld ms)", (FAST_ADV_TIME - elapsed_time));
 	/* Advertise 60 seconds using fast interval */
-	return bt_mesh_adv_gatt_start(&fast_adv_param, (FAST_ADV_TIME - elapsed_time),
-				      prov_ad, ARRAY_SIZE(prov_ad),
-				      prov_sd, prov_sd_len);
+	err = bt_mesh_adv_gatt_start(&fast_adv_param, (60 * MSEC_PER_SEC),
+				     prov_ad, ARRAY_SIZE(prov_ad),
+				     prov_sd, prov_sd_len);
+	if (!err) {
+		prov_fast_adv = false;
+	}
 
+	return err;
 }
 
 BT_CONN_CB_DEFINE(conn_callbacks) = {

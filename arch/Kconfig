@@ -123,7 +123,6 @@ config XTENSA
 	select USE_SWITCH
 	select USE_SWITCH_SUPPORTED
 	select IRQ_OFFLOAD_NESTED if IRQ_OFFLOAD
-	select ARCH_HAS_TIMING_FUNCTIONS
 	imply ATOMIC_OPERATIONS_ARCH
 	help
 	  Xtensa architecture
@@ -408,16 +407,6 @@ config GEN_IRQ_VECTOR_TABLE
 	  indexed by IRQ line. In the latter case, the vector table must be
 	  supplied by the application or architecture code.
 
-config ARCH_IRQ_VECTOR_TABLE_ALIGN
-	int "Alignment size of the interrupt vector table"
-	default 4
-	depends on GEN_IRQ_VECTOR_TABLE
-	help
-	  This option controls alignment size of generated
-	  _irq_vector_table.  Some architecture needs an IRQ vector table
-	  to be aligned to architecture specific size.  The default
-	  size is 0 for no alignment.
-
 config GEN_SW_ISR_TABLE
 	bool "Generate a software ISR table"
 	default y
@@ -430,7 +419,7 @@ config GEN_SW_ISR_TABLE
 
 config ARCH_SW_ISR_TABLE_ALIGN
 	int "Alignment size of a software ISR table"
-	default 4
+	default 0
 	depends on GEN_SW_ISR_TABLE
 	help
 	  This option controls alignment size of generated
@@ -753,12 +742,6 @@ config FPU_SHARING
 endmenu
 
 menu "Cache Options"
-
-config DCACHE
-	bool "Data cache support"
-	default y
-	help
-	  This option enables data cache (d-cache).
 
 config CACHE_MANAGEMENT
 	bool "Cache management features"

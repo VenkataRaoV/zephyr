@@ -1,0 +1,19 @@
+identifier: efr32xG24_dk2601b
+name: BRD4601B
+type: mcu
+arch: arm
+ram: 256
+flash: 1536
+toolchain:
+  - zephyr
+  - gnuarmemb
+  - xtools
+supported:
+  - counter
+  - gpio
+  - uart
+  - watchdog
+testing:
+  ignore_tags:
+    - net
+    - bluetooth

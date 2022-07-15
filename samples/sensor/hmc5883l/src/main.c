@@ -38,10 +38,14 @@ end:
 
 void main(void)
 {
-	const struct device *dev = DEVICE_DT_GET_ONE(honeywell_hmc5883l);
+	const struct device *dev;
 
-	if (!device_is_ready(dev)) {
-		printk("Device %s is not ready\n", dev->name);
+	dev = device_get_binding(DT_LABEL(DT_INST(0, honeywell_hmc5883l)));
+
+	if (dev == NULL) {
+		printk("Could not get %s device at I2C addr 0x%02X\n",
+		       DT_LABEL(DT_INST(0, honeywell_hmc5883l)),
+		       DT_REG_ADDR(DT_INST(0, honeywell_hmc5883l)));
 		return;
 	}
 

@@ -53,7 +53,7 @@ static void *thread_top(void *p1)
 	return NULL;
 }
 
-ZTEST(posix_apis, test_posix_rw_lock)
+void test_posix_rw_lock(void)
 {
 	int32_t i, ret;
 	pthread_attr_t attr[N_THR];

@@ -25,6 +25,7 @@ Hardware
 
 The following Xtensa cores are officially supported:
 
+- Intel S1000
 - sample_controller
 
 System Clock

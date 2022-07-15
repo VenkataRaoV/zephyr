@@ -46,9 +46,9 @@ static void handler(struct net_mgmt_event_callback *cb,
 		}
 
 		LOG_INF("Your address: %s",
-			net_addr_ntop(AF_INET,
+			log_strdup(net_addr_ntop(AF_INET,
 				    &cfg->ip.ipv4->unicast[i].address.in_addr,
-				    buf, sizeof(buf)));
+				    buf, sizeof(buf))));
 	}
 }
 

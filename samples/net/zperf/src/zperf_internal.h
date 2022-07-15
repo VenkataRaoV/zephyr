@@ -70,28 +70,28 @@ static inline uint32_t time_delta(uint32_t ts, uint32_t t)
 	return (t >= ts) ? (t - ts) : (ULONG_MAX - ts + t);
 }
 
-int zperf_get_ipv6_addr(const struct shell *sh, char *host,
+int zperf_get_ipv6_addr(const struct shell *shell, char *host,
 			char *prefix_str, struct in6_addr *addr);
 struct sockaddr_in6 *zperf_get_sin6(void);
 
-int zperf_get_ipv4_addr(const struct shell *sh, char *host,
+int zperf_get_ipv4_addr(const struct shell *shell, char *host,
 			struct in_addr *addr);
 struct sockaddr_in *zperf_get_sin(void);
 
-extern void zperf_udp_upload(const struct shell *sh,
-			     int sock,
+extern void zperf_udp_upload(const struct shell *shell,
+			     struct net_context *context,
 			     int port,
 			     unsigned int duration_in_ms,
 			     unsigned int packet_size,
 			     unsigned int rate_in_kbps,
 			     struct zperf_results *results);
 
-extern void zperf_udp_receiver_init(const struct shell *sh, int port);
+extern void zperf_udp_receiver_init(const struct shell *shell, int port);
 
-extern void zperf_tcp_receiver_init(const struct shell *sh, int port);
+extern void zperf_tcp_receiver_init(const struct shell *shell, int port);
 extern void zperf_tcp_uploader_init(struct k_fifo *tx_queue);
-extern void zperf_tcp_upload(const struct shell *sh,
-			     int sock,
+extern void zperf_tcp_upload(const struct shell *shell,
+			     struct net_context *net_context,
 			     unsigned int duration_in_ms,
 			     unsigned int packet_size,
 			     struct zperf_results *results);

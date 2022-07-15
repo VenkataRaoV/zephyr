@@ -11,30 +11,43 @@ LOG_MODULE_DECLARE(net_zperf_sample, LOG_LEVEL_DBG);
 
 #include <zephyr/sys/printk.h>
 
-#include <zephyr/net/socket.h>
+#include <zephyr/net/net_core.h>
+#include <zephyr/net/net_ip.h>
+#include <zephyr/net/net_pkt.h>
 
 #include "zperf.h"
 #include "zperf_internal.h"
 
 static uint8_t sample_packet[sizeof(struct zperf_udp_datagram) +
-			     sizeof(struct zperf_client_hdr_v1) +
-			     PACKET_SIZE_MAX];
+			  sizeof(struct zperf_client_hdr_v1) +
+			  PACKET_SIZE_MAX];
 
-static inline void zperf_upload_decode_stat(const struct shell *sh,
-					    const uint8_t *data,
-					    size_t datalen,
+static inline void zperf_upload_decode_stat(const struct shell *shell,
+					    struct net_pkt *pkt,
 					    struct zperf_results *results)
 {
+	NET_PKT_DATA_ACCESS_DEFINE(zperf_udp, struct zperf_udp_datagram);
+	NET_PKT_DATA_ACCESS_DEFINE(zperf_stat, struct zperf_server_hdr);
+	struct zperf_udp_datagram *hdr;
 	struct zperf_server_hdr *stat;
 
-	if (datalen < sizeof(struct zperf_udp_datagram) +
-		      sizeof(struct zperf_server_hdr)) {
-		shell_fprintf(sh, SHELL_WARNING,
+	hdr = (struct zperf_udp_datagram *)
+		net_pkt_get_data(pkt, &zperf_udp);
+	if (!hdr) {
+		shell_fprintf(shell, SHELL_WARNING,
 			      "Network packet too short\n");
+		return;
 	}
 
+	net_pkt_acknowledge_data(pkt, &zperf_udp);
+
 	stat = (struct zperf_server_hdr *)
-			(data + sizeof(struct zperf_udp_datagram));
+		net_pkt_get_data(pkt, &zperf_stat);
+	if (!stat) {
+		shell_fprintf(shell, SHELL_WARNING,
+			      "Network packet too short\n");
+		return;
+	}
 
 	results->nb_packets_rcvd = ntohl(UNALIGNED_GET(&stat->datagrams));
 	results->nb_packets_lost = ntohl(UNALIGNED_GET(&stat->error_cnt));
@@ -47,27 +60,34 @@ static inline void zperf_upload_decode_stat(const struct shell *sh,
 		ntohl(UNALIGNED_GET(&stat->jitter1)) * USEC_PER_SEC;
 }
 
-static inline void zperf_upload_fin(const struct shell *sh,
-				    int sock,
+static void stat_received(struct net_context *context,
+			  struct net_pkt *pkt,
+			  union net_ip_header *ip_hdr,
+			  union net_proto_header *proto_hdr,
+			  int status,
+			  void *user_data)
+{
+	struct net_pkt **stat = user_data;
+
+	*stat = pkt;
+}
+
+static inline void zperf_upload_fin(const struct shell *shell,
+				    struct net_context *context,
 				    uint32_t nb_packets,
 				    uint64_t end_time,
 				    uint32_t packet_size,
 				    struct zperf_results *results)
 {
-	uint8_t stats[sizeof(struct zperf_udp_datagram) +
-		      sizeof(struct zperf_server_hdr)] = { 0 };
+	struct net_pkt *stat = NULL;
 	struct zperf_udp_datagram *datagram;
 	struct zperf_client_hdr_v1 *hdr;
 	uint32_t secs = k_ticks_to_ms_ceil32(end_time) / 1000U;
 	uint32_t usecs = k_ticks_to_us_ceil32(end_time) - secs * USEC_PER_SEC;
 	int loop = 2;
-	int ret = 0;
-	struct timeval rcvtimeo = {
-		.tv_sec = 2,
-		.tv_usec = 0,
-	};
+	int ret;
 
-	while (ret <= 0 && loop-- > 0) {
+	while (!stat && loop-- > 0) {
 		datagram = (struct zperf_udp_datagram *)sample_packet;
 
 		/* Fill the packet header */
@@ -92,61 +112,60 @@ static inline void zperf_upload_fin(const struct shell *sh,
 		hdr->num_of_bytes = htonl(packet_size);
 
 		/* Send the packet */
-		ret = send(sock, sample_packet, packet_size, 0);
+		ret = net_context_send(context, sample_packet, packet_size,
+				       NULL, K_NO_WAIT, NULL);
 		if (ret < 0) {
-			shell_fprintf(sh, SHELL_WARNING,
+			shell_fprintf(shell, SHELL_WARNING,
 				      "Failed to send the packet (%d)\n",
-				      errno);
+				      ret);
 			continue;
 		}
 
 		/* Receive statistics */
-		ret = setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &rcvtimeo,
-				 sizeof(rcvtimeo));
-		if (ret < 0) {
-			shell_fprintf(sh, SHELL_WARNING,
-				      "setsockopt error (%d)\n",
-				      errno);
-			continue;
-		}
+		stat = NULL;
 
-		ret = recv(sock, stats, sizeof(stats), 0);
-		if (ret == -EAGAIN) {
-			shell_fprintf(sh, SHELL_WARNING,
-					"Stats receive timeout\n");
-		} else if (ret < 0) {
-			shell_fprintf(sh, SHELL_WARNING,
-					"Failed to receive packet (%d)\n",
-					errno);
+		ret = net_context_recv(context, stat_received,
+				       K_SECONDS(2), &stat);
+		if (ret == -ETIMEDOUT) {
+			break;
 		}
 	}
 
 	/* Decode statistics */
-	if (ret > 0) {
-		zperf_upload_decode_stat(sh, stats, ret, results);
+	if (stat) {
+		zperf_upload_decode_stat(shell, stat, results);
+
+		net_pkt_unref(stat);
 	}
 
 	/* Drain RX */
-	while (true) {
-		ret = recv(sock, stats, sizeof(stats), MSG_DONTWAIT);
-		if (ret < 0) {
+	while (stat) {
+		stat = NULL;
+
+		ret = net_context_recv(context, stat_received,
+				       K_NO_WAIT, &stat);
+		if (ret == -ETIMEDOUT) {
 			break;
 		}
 
-		shell_fprintf(sh, SHELL_WARNING,
-			      "Drain one spurious stat packet!\n");
+		if (stat) {
+			shell_fprintf(shell, SHELL_WARNING,
+				      "Drain one spurious stat packet!\n");
+
+			net_pkt_unref(stat);
+		}
 	}
 }
 
-void zperf_udp_upload(const struct shell *sh,
-		      int sock,
+void zperf_udp_upload(const struct shell *shell,
+		      struct net_context *context,
 		      int port,
 		      unsigned int duration_in_ms,
 		      unsigned int packet_size,
 		      unsigned int rate_in_kbps,
 		      struct zperf_results *results)
 {
-	uint32_t packet_duration = ((uint64_t)packet_size * 8U * USEC_PER_SEC) /
+	uint32_t packet_duration = ((uint32_t)packet_size * 8U * USEC_PER_SEC) /
 				   (rate_in_kbps * 1024U);
 	uint64_t duration = sys_clock_timeout_end_calc(K_MSEC(duration_in_ms));
 	int64_t print_interval = sys_clock_timeout_end_calc(K_SECONDS(1));
@@ -157,23 +176,23 @@ void zperf_udp_upload(const struct shell *sh,
 	int64_t remaining, print_info;
 
 	if (packet_size > PACKET_SIZE_MAX) {
-		shell_fprintf(sh, SHELL_WARNING,
+		shell_fprintf(shell, SHELL_WARNING,
 			      "Packet size too large! max size: %u\n",
 			      PACKET_SIZE_MAX);
 		packet_size = PACKET_SIZE_MAX;
 	} else if (packet_size < sizeof(struct zperf_udp_datagram)) {
-		shell_fprintf(sh, SHELL_WARNING,
+		shell_fprintf(shell, SHELL_WARNING,
 			      "Packet size set to the min size: %zu\n",
 			      sizeof(struct zperf_udp_datagram));
 		packet_size = sizeof(struct zperf_udp_datagram);
 	}
 
 	if (packet_duration > 1000U) {
-		shell_fprintf(sh, SHELL_NORMAL,
+		shell_fprintf(shell, SHELL_NORMAL,
 			      "Packet duration %u ms\n",
 			      (unsigned int)(packet_duration / 1000U));
 	} else {
-		shell_fprintf(sh, SHELL_NORMAL,
+		shell_fprintf(shell, SHELL_NORMAL,
 			      "Packet duration %u us\n",
 			      (unsigned int)packet_duration);
 	}
@@ -238,11 +257,12 @@ void zperf_udp_upload(const struct shell *sh,
 		hdr->num_of_bytes = htonl(packet_size);
 
 		/* Send the packet */
-		ret = send(sock, sample_packet, packet_size, 0);
+		ret = net_context_send(context, sample_packet, packet_size,
+				       NULL, K_NO_WAIT, NULL);
 		if (ret < 0) {
-			shell_fprintf(sh, SHELL_WARNING,
+			shell_fprintf(shell, SHELL_WARNING,
 				      "Failed to send the packet (%d)\n",
-				      errno);
+				      ret);
 			break;
 		} else {
 			nb_packets++;
@@ -251,7 +271,7 @@ void zperf_udp_upload(const struct shell *sh,
 		/* Print log every seconds */
 		print_info = print_interval - k_uptime_ticks();
 		if (print_info <= 0) {
-			shell_fprintf(sh, SHELL_WARNING,
+			shell_fprintf(shell, SHELL_WARNING,
 				    "nb_packets=%u\tdelay=%u\tadjust=%d\n",
 				      nb_packets, (unsigned int)delay,
 				      (int)adjust);
@@ -276,7 +296,7 @@ void zperf_udp_upload(const struct shell *sh,
 
 	end_time = k_uptime_ticks();
 
-	zperf_upload_fin(sh, sock, nb_packets, end_time, packet_size,
+	zperf_upload_fin(shell, context, nb_packets, end_time, packet_size,
 			 results);
 
 	/* Add result coming from the client */

@@ -11,11 +11,12 @@
 
 void main(void)
 {
-	const struct device *dev = DEVICE_DT_GET_ONE(ams_ens210);
+	const struct device *dev;
 	struct sensor_value temperature, humidity;
 
-	if (!device_is_ready(dev)) {
-		printk("Device %s is not ready\n", dev->name);
+	dev = device_get_binding(DT_LABEL(DT_INST(0, ams_ens210)));
+	if (!dev) {
+		printk("Failed to get device binding");
 		return;
 	}
 

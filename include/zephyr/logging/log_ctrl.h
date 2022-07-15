@@ -82,10 +82,12 @@ __syscall void log_panic(void);
 /**
  * @brief Process one pending log message.
  *
+ * @param bypass If true message is released without being processed.
+ *
  * @retval true There is more messages pending to be processed.
  * @retval false No messages pending.
  */
-__syscall bool log_process(void);
+__syscall bool log_process(bool bypass);
 
 /**
  * @brief Return number of buffered log messages.
@@ -216,7 +218,12 @@ uint32_t log_get_strdup_longest_string(void);
  */
 static inline bool log_data_pending(void)
 {
-	return IS_ENABLED(CONFIG_LOG_MODE_DEFERRED) ? z_log_msg_pending() : false;
+	if (IS_ENABLED(CONFIG_LOG_MODE_DEFERRED)) {
+		return IS_ENABLED(CONFIG_LOG2) ?
+			z_log_msg2_pending() : (log_msg_mem_get_used() > 0);
+	}
+
+	return false;
 }
 
 /**
@@ -264,7 +271,7 @@ int log_mem_get_max_usage(uint32_t *max);
 #define LOG_PROCESS() false
 #else /* !CONFIG_LOG_FRONTEND_ONLY */
 #define LOG_INIT() log_init()
-#define LOG_PROCESS() log_process()
+#define LOG_PROCESS() log_process(false)
 #endif /* !CONFIG_LOG_FRONTEND_ONLY */
 #else
 #define LOG_CORE_INIT() do { } while (false)

@@ -573,7 +573,8 @@ int net_context_bind(struct net_context *context, const struct sockaddr *addr,
 
 		if (!iface) {
 			NET_ERR("Cannot bind to %s",
-				net_sprint_ipv6_addr(&addr6->sin6_addr));
+				log_strdup(net_sprint_ipv6_addr(
+						   &addr6->sin6_addr)));
 
 			return -EADDRNOTAVAIL;
 		}
@@ -616,7 +617,7 @@ int net_context_bind(struct net_context *context, const struct sockaddr *addr,
 			context,
 			net_proto2str(AF_INET6,
 				      net_context_get_ip_proto(context)),
-			net_sprint_ipv6_addr(ptr),
+			log_strdup(net_sprint_ipv6_addr(ptr)),
 			ntohs(addr6->sin6_port),
 			net_if_get_by_iface(iface), iface);
 
@@ -671,7 +672,8 @@ int net_context_bind(struct net_context *context, const struct sockaddr *addr,
 
 		if (!iface) {
 			NET_ERR("Cannot bind to %s",
-				net_sprint_ipv4_addr(&addr4->sin_addr));
+				log_strdup(net_sprint_ipv4_addr(
+						   &addr4->sin_addr)));
 
 			return -EADDRNOTAVAIL;
 		}
@@ -714,7 +716,7 @@ int net_context_bind(struct net_context *context, const struct sockaddr *addr,
 			context,
 			net_proto2str(AF_INET,
 				      net_context_get_ip_proto(context)),
-			net_sprint_ipv4_addr(ptr),
+			log_strdup(net_sprint_ipv4_addr(ptr)),
 			ntohs(addr4->sin_port),
 			net_if_get_by_iface(iface), iface);
 
@@ -771,9 +773,9 @@ int net_context_bind(struct net_context *context, const struct sockaddr *addr,
 		NET_DBG("Context %p bind to type 0x%04x iface[%d] %p addr %s",
 			context, htons(net_context_get_ip_proto(context)),
 			ll_addr->sll_ifindex, iface,
-			net_sprint_ll_addr(
+			log_strdup(net_sprint_ll_addr(
 				net_sll_ptr(&context->local)->sll_addr,
-				net_sll_ptr(&context->local)->sll_halen));
+				net_sll_ptr(&context->local)->sll_halen)));
 
 		k_mutex_unlock(&context->lock);
 
@@ -1036,6 +1038,8 @@ int net_context_connect(struct net_context *context,
 		}
 
 		/* FIXME - Add multicast and broadcast address check */
+
+		addr4 = (struct sockaddr_in *)&context->remote;
 
 		memcpy(&addr4->sin_addr, &net_sin(addr)->sin_addr,
 		       sizeof(struct in_addr));
@@ -1564,18 +1568,15 @@ static int context_sendto(struct net_context *context,
 			return -EINVAL;
 		}
 
-		iface = net_context_get_iface(context);
-		if (iface == NULL) {
-			if (ll_addr->sll_ifindex < 0) {
-				return -EDESTADDRREQ;
-			}
+		if (ll_addr->sll_ifindex < 0) {
+			return -EDESTADDRREQ;
+		}
 
-			iface = net_if_get_by_index(ll_addr->sll_ifindex);
-			if (iface == NULL) {
-				NET_ERR("Cannot bind to interface index %d",
-					ll_addr->sll_ifindex);
-				return -EDESTADDRREQ;
-			}
+		iface = net_if_get_by_index(ll_addr->sll_ifindex);
+		if (!iface) {
+			NET_ERR("Cannot bind to interface index %d",
+				ll_addr->sll_ifindex);
+			return -EDESTADDRREQ;
 		}
 
 		if (net_context_get_type(context) == SOCK_DGRAM) {
@@ -1659,11 +1660,6 @@ static int context_sendto(struct net_context *context,
 	tmp_len = net_pkt_available_payload_buffer(
 				pkt, net_context_get_ip_proto(context));
 	if (tmp_len < len) {
-		if (net_context_get_type(context) == SOCK_DGRAM) {
-			NET_ERR("Available payload buffer (%zu) is not enough for requested DGRAM (%zu)",
-				tmp_len, len);
-			return -ENOMEM;
-		}
 		len = tmp_len;
 	}
 

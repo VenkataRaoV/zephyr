@@ -41,13 +41,8 @@ LOG_MODULE_REGISTER(net_sock, CONFIG_NET_SOCKETS_LOG_LEVEL);
 		int ret;				     \
 							     \
 		obj = get_sock_vtable(sock, &vtable, &lock); \
-		if (obj == NULL) {			     \
+		if (obj == NULL || vtable->fn == NULL) {     \
 			errno = EBADF;			     \
-			return -1;			     \
-		}					     \
-							     \
-		if (vtable->fn == NULL) {		     \
-			errno = EOPNOTSUPP;		     \
 			return -1;			     \
 		}					     \
 							     \
@@ -644,10 +639,9 @@ static inline int z_vrfy_zsock_accept(int sock, struct sockaddr *addr,
 
 	Z_OOPS(addrlen && z_user_from_copy(&addrlen_copy, addrlen,
 					   sizeof(socklen_t)));
-	Z_OOPS(addr && Z_SYSCALL_MEMORY_WRITE(addr, addrlen ? addrlen_copy : 0));
+	Z_OOPS(addr && Z_SYSCALL_MEMORY_WRITE(addr, addrlen_copy));
 
-	ret = z_impl_zsock_accept(sock, (struct sockaddr *)addr,
-				  addrlen ? &addrlen_copy : NULL);
+	ret = z_impl_zsock_accept(sock, (struct sockaddr *)addr, &addrlen_copy);
 
 	Z_OOPS(ret >= 0 && addrlen && z_user_to_copy(addrlen, &addrlen_copy,
 						     sizeof(socklen_t)));
@@ -795,19 +789,6 @@ ssize_t z_vrfy_zsock_sendto(int sock, const void *buf, size_t len, int flags,
 }
 #include <syscalls/zsock_sendto_mrsh.c>
 #endif /* CONFIG_USERSPACE */
-
-size_t msghdr_non_empty_iov_count(const struct msghdr *msg)
-{
-	size_t non_empty_iov_count = 0;
-
-	for (size_t i = 0; i < msg->msg_iovlen; i++) {
-		if (msg->msg_iov[i].iov_len) {
-			non_empty_iov_count++;
-		}
-	}
-
-	return non_empty_iov_count;
-}
 
 ssize_t zsock_sendmsg_ctx(struct net_context *ctx, const struct msghdr *msg,
 			  int flags)
@@ -1858,12 +1839,6 @@ int zsock_getsockopt_ctx(struct net_context *ctx, int level, int optname,
 			}
 			break;
 		}
-	case IPPROTO_TCP:
-		switch (optname) {
-		case TCP_NODELAY:
-			ret = net_tcp_get_option(ctx, TCP_OPT_NODELAY, optval, optlen);
-			return ret;
-		}
 	}
 
 	errno = ENOPROTOOPT;
@@ -2111,9 +2086,10 @@ int zsock_setsockopt_ctx(struct net_context *ctx, int level, int optname,
 	case IPPROTO_TCP:
 		switch (optname) {
 		case TCP_NODELAY:
-			ret = net_tcp_set_option(ctx,
-						 TCP_OPT_NODELAY, optval, optlen);
-			return ret;
+			/* Ignore for now. Provided to let port
+			 * existing apps.
+			 */
+			return 0;
 		}
 		break;
 

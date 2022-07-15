@@ -8,7 +8,6 @@
 
 import sys
 import argparse
-import colorama
 from colorama import Fore
 
 INVALID_INPUT = -1
@@ -245,5 +244,3 @@ def exit_with_failure(message):
     print(Fore.RED + message)
 
     sys.exit(EXIT_FAILURE_STATUS)
-
-colorama.init()

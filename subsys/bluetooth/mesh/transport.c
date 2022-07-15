@@ -1857,11 +1857,11 @@ void bt_mesh_va_pending_store(void)
 		if (err) {
 			BT_ERR("Failed to %s %s value (err %d)",
 			       IS_VA_DEL(lab) ? "delete" : "store",
-			       path, err);
+			       log_strdup(path), err);
 		} else {
 			BT_DBG("%s %s value",
 			       IS_VA_DEL(lab) ? "Deleted" : "Stored",
-			       path);
+			       log_strdup(path));
 		}
 	}
 }

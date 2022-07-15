@@ -127,12 +127,13 @@ static void test_trigger_mode(const struct device *itds)
 
 void main(void)
 {
-	const struct device *itds = DEVICE_DT_GET_ONE(we_wsen_itds);
+	const struct device *itds;
 	struct sensor_value attr;
 
 	printf("get device wsen-itds\n");
-	if (!device_is_ready(itds)) {
-		printk("sensor: device not ready.\n");
+	itds = device_get_binding(DT_LABEL(DT_INST(0, we_wsen_itds)));
+	if (!itds) {
+		printf("Device not found.\n");
 		return;
 	}
 

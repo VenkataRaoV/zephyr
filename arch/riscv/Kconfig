@@ -9,6 +9,18 @@ config ARCH
 	default "riscv64" if 64BIT
 	default "riscv32"
 
+config COMPRESSED_ISA
+	bool
+	default y if 64BIT
+
+config RISCV_ATOMICS_ISA
+	bool "RISC-V atomics 'a' extension"
+	default y
+
+config RISCV_MUL_ISA
+	bool "RISC-V HW multiply 'm' extension"
+	default y
+
 config FLOAT_HARD
 	bool "Hard-float calling convention"
 	default y
@@ -29,6 +41,13 @@ config RISCV_GP
 	  using GP relative addressing.
 
 menu "RISCV Processor Options"
+
+config CORE_E31
+	bool "Use E31 core"
+	select RISCV_PMP
+	default n
+	help
+	  This option signifies the use of a core of the E31 family.
 
 config INCLUDE_RESET_VECTOR
 	bool "Include Reset vector"
@@ -128,7 +147,6 @@ config RISCV_PMP
 	select SRAM_REGION_PERMISSIONS
 	select ARCH_MEM_DOMAIN_SYNCHRONOUS_API if USERSPACE
 	select ARCH_MEM_DOMAIN_DATA if USERSPACE
-	select THREAD_LOCAL_STORAGE if USERSPACE
 	help
 	  MCU implements Physical Memory Protection.
 
@@ -188,8 +206,5 @@ config CMSIS_THREAD_MAX_STACK_SIZE
 
 config CMSIS_V2_THREAD_MAX_STACK_SIZE
 	default 1024 if 64BIT
-
-rsource "Kconfig.isa"
-rsource "Kconfig.core"
 
 endmenu

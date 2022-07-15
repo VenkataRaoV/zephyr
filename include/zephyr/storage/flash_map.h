@@ -118,8 +118,7 @@ int flash_area_check_int_sha256(const struct flash_area *fa,
  * @p ID is unknown, it will be NULL on output.
  *
  * @return  0 on success, -EACCES if the flash_map is not available ,
- * -ENOENT if @p ID is unknown, -ENODEV if there is no driver attached
- * to the area.
+ * -ENOENT if @p ID is unknown.
  */
 int flash_area_open(uint8_t id, const struct flash_area **fa);
 

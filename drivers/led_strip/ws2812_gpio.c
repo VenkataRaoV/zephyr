@@ -208,6 +208,7 @@ static const uint8_t ws2812_gpio_##idx##_color_mapping[] =		\
  *
  * TODO: try to make this portable, or at least port to more devices.
  */
+#define WS2812_GPIO_CLK(idx) DT_LABEL(DT_INST(0, nordic_nrf_clock))
 
 #define WS2812_GPIO_DEVICE(idx)					\
 									\

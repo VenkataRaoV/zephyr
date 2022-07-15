@@ -58,8 +58,3 @@ int bt_audio_unicast_server_location_changed(enum bt_audio_dir dir)
 	return bt_pacs_location_changed(dir);
 }
 #endif /* CONFIG_BT_PAC_SNK_LOC || CONFIG_BT_PAC_SRC_LOC */
-
-int bt_audio_unicast_server_available_contexts_changed(void)
-{
-	return bt_pacs_available_contexts_changed();
-}

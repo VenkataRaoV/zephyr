@@ -22,10 +22,10 @@
  *   when the counters reach zero.
  */
 
-#include <zephyr/logging/log.h>
+#include <logging/log.h>
 LOG_MODULE_REGISTER(counter_mchp_xec, CONFIG_COUNTER_LOG_LEVEL);
 
-#include <zephyr/drivers/counter.h>
+#include <drivers/counter.h>
 #include <soc.h>
 #include <errno.h>
 #include <stdbool.h>

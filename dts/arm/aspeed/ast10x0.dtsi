@@ -25,7 +25,6 @@
 
 	soc {
 		syscon: syscon@7e6e2000 {
-			compatible = "syscon";
 			reg = <0x7e6e2000 0x1000>;
 		};
 
@@ -35,7 +34,6 @@
 			interrupts = <8 0>;
 			status = "disabled";
 			label = "UART_5";
-			reg-shift = <2>;
 		};
 	};
 };

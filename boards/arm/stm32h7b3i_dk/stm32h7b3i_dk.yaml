@@ -17,5 +17,3 @@ supported:
   - memc
   - backup_sram
   - display
-  - can
-  - canfd

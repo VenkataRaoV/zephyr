@@ -6,12 +6,12 @@
 
 #define DT_DRV_COMPAT atmel_sam0_tc32
 
-#include <zephyr/drivers/counter.h>
-#include <zephyr/drivers/pinctrl.h>
-#include <zephyr/device.h>
+#include <drivers/counter.h>
+#include <drivers/pinctrl.h>
+#include <device.h>
 #include <soc.h>
 
-#include <zephyr/logging/log.h>
+#include <logging/log.h>
 LOG_MODULE_REGISTER(counter_sam0_tc32, CONFIG_COUNTER_LOG_LEVEL);
 
 struct counter_sam0_tc32_ch_data {

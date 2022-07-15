@@ -137,7 +137,8 @@ static void gptp_phase_dis_cb(uint8_t *gm_identity,
 		memcpy(id, gm_identity, sizeof(id));
 
 		LOG_DBG("GM %s last phase %d.%" PRId64 "",
-			gptp_sprint_clock_id(gm_identity, output, sizeof(output)),
+			log_strdup(gptp_sprint_clock_id(gm_identity, output,
+							sizeof(output))),
 			last_gm_ph_change->high,
 			last_gm_ph_change->low);
 	}

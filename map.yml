@@ -1,0 +1,6 @@
+- connected: true
+  id: 000440243597
+  platform: efr32_radio_brd4104a
+  product: J-Link Pro OB
+  runner: jlink
+  serial: /dev/ttyACM0

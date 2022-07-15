@@ -6,10 +6,10 @@
 
 #define DT_DRV_COMPAT nxp_imx_gpt
 
-#include <zephyr/drivers/counter.h>
-#include <zephyr/drivers/clock_control.h>
+#include <drivers/counter.h>
+#include <drivers/clock_control.h>
 #include <fsl_gpt.h>
-#include <zephyr/logging/log.h>
+#include <logging/log.h>
 
 LOG_MODULE_REGISTER(mcux_gpt, CONFIG_COUNTER_LOG_LEVEL);
 

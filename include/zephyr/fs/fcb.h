@@ -232,7 +232,7 @@ int fcb_walk(struct fcb *fcb, struct flash_sector *sector, fcb_walk_cb cb,
  */
 int fcb_getnext(struct fcb *fcb, struct fcb_entry *loc);
 
-/**
+/*
  * Rotate fcb sectors
  *
  * Function erases the data from oldest sector. Upon that the next sector
@@ -242,7 +242,7 @@ int fcb_getnext(struct fcb *fcb, struct fcb_entry *loc);
  */
 int fcb_rotate(struct fcb *fcb);
 
-/**
+/*
  * Start using the scratch block.
  *
  * Take one of the scratch blocks into use. So a scratch sector becomes
@@ -324,8 +324,8 @@ int fcb_flash_read(const struct fcb *fcb, const struct flash_sector *sector,
  * @param[in] fcb    FCB instance structure.
  * @param[in] sector FCB sector.
  * @param[in] off    Write offset form sector begin.
- * @param[in] src    Source buffer.
- * @param[in] len    Write size.
+ * @param[out] src   Source buffer.
+ * @param[in] len    Read-out size.
  *
  * @return  0 on success, negative errno code on fail.
  */

@@ -28,13 +28,8 @@
 #ifndef CONFIG_BT_CTLR_PHY
 #define CONFIG_BT_CTLR_PHY 1
 #endif
-
 #ifndef CONFIG_BT_CTLR_PHY_2M
 #define CONFIG_BT_CTLR_PHY_2M y
-#endif
-
-#ifndef CONFIG_BT_CTLR_PHY_CODED
-#define CONFIG_BT_CTLR_PHY_CODED y
 #endif
 
 #ifndef CONFIG_BT_CTLR_LOW_LAT
@@ -163,7 +158,7 @@
 #endif
 
 #ifndef CONFIG_BT_CTLR_DF_MAX_ANT_SW_PATTERN_LEN
-#define CONFIG_BT_CTLR_DF_MAX_ANT_SW_PATTERN_LEN 38
+#define CONFIG_BT_CTLR_DF_MAX_ANT_SW_PATTERN_LEN 39
 #endif
 
 /* Kconfig Cheats */

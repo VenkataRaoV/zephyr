@@ -372,7 +372,7 @@
 	#define LSM6DS0_DEFAULT_ACCEL_FULLSCALE		3
 	#define LSM6DS0_DEFAULT_ACCEL_FULLSCALE_FACTOR	(8.0 * SENSOR_G_DOUBLE)
 #elif defined(LSM6DS0_ACCEL_FULLSCALE_16G)
-	#define LSM6DS0_DEFAULT_ACCEL_FULLSCALE		1
+	#define LSM6DS0_DEFALUT_ACCEL_FULLSCALE		1
 	#define LSM6DS0_DEFAULT_ACCEL_FULLSCALE_FACTOR	(16.0 * SENSOR_G_DOUBLE)
 #endif
 
@@ -460,10 +460,13 @@
 #endif
 
 struct lsm6ds0_config {
-	struct i2c_dt_spec i2c;
+	char *i2c_master_dev_name;
+	uint16_t i2c_slave_addr;
 };
 
 struct lsm6ds0_data {
+	const struct device *i2c_master;
+
 #if defined(CONFIG_LSM6DS0_ACCEL_ENABLE_X_AXIS)
 	int accel_sample_x;
 #endif

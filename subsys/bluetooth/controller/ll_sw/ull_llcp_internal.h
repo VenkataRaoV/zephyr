@@ -33,7 +33,6 @@ enum llcp_tx_q_pause_data_mask {
 	LLCP_TX_QUEUE_PAUSE_DATA_ENCRYPTION = 0x01,
 	LLCP_TX_QUEUE_PAUSE_DATA_PHY_UPDATE = 0x02,
 	LLCP_TX_QUEUE_PAUSE_DATA_DATA_LENGTH = 0x04,
-	LLCP_TX_QUEUE_PAUSE_DATA_TERMINATE = 0x08,
 };
 
 #if ((CONFIG_BT_CTLR_LLCP_COMMON_TX_CTRL_BUF_NUM <\
@@ -360,7 +359,6 @@ void llcp_tx_resume_data(struct ll_conn *conn, enum llcp_tx_q_pause_data_mask re
  * LLCP Procedure Response Timeout
  */
 void llcp_lr_prt_restart(struct ll_conn *conn);
-void llcp_lr_prt_restart_with_value(struct ll_conn *conn, uint16_t value);
 void llcp_lr_prt_stop(struct ll_conn *conn);
 void llcp_rr_prt_restart(struct ll_conn *conn);
 void llcp_rr_prt_stop(struct ll_conn *conn);

@@ -10,6 +10,7 @@
 /* Redeclaration of the earlier IDC register API for platforms being
  * held back on this driver.
  */
+#ifndef CONFIG_SOC_INTEL_S1000
 # ifndef IPC_DSP_BASE
 # define IPC_DSP_BASE(core)    (DT_REG_ADDR(DT_NODELABEL(idc)) + 0x80 * (core))
 # endif
@@ -26,6 +27,7 @@
 #define IPC_IDCIETC_DONE      BIT(30)
 #define IPC_IDCCTL            0x50
 #define IPC_IDCCTL_IDCTBIE(x) BIT(x)
+#endif
 
 #define IPM_CAVS_IDC_ID_MASK			\
 	(CAVS_IDC_TYPE(CAVS_IDC_TYPE_MASK) |	\

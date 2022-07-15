@@ -5,6 +5,7 @@
  */
 
 #include <zephyr/sys/printk.h>
+#include <zephyr/zephyr.h>
 #include <zephyr/types.h>
 #include <zephyr/pm/device.h>
 #include <zephyr/pm/device_runtime.h>

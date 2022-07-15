@@ -85,7 +85,7 @@ uint32_t pcie_get_ext_cap(pcie_bdf_t bdf, uint32_t cap_id)
 
 	while (reg) {
 		data = pcie_conf_read(bdf, reg);
-		if (!data || data == 0xffffffffU) {
+		if (!data || data == 0xffffffff) {
 			return 0;
 		}
 
@@ -139,7 +139,7 @@ bool pcie_get_mbar(pcie_bdf_t bdf,
 		return false;
 	}
 
-	pcie_conf_write(bdf, reg, 0xFFFFFFFFU);
+	pcie_conf_write(bdf, reg, 0xFFFFFFFF);
 	size = pcie_conf_read(bdf, reg);
 	pcie_conf_write(bdf, reg, (uint32_t)phys_addr);
 
@@ -153,7 +153,7 @@ bool pcie_get_mbar(pcie_bdf_t bdf,
 			return false;
 		}
 
-		pcie_conf_write(bdf, reg, 0xFFFFFFFFU);
+		pcie_conf_write(bdf, reg, 0xFFFFFFFF);
 		size |= ((uint64_t)pcie_conf_read(bdf, reg)) << 32;
 		pcie_conf_write(bdf, reg, (uint32_t)((uint64_t)phys_addr >> 32));
 	} else if (PCIE_CONF_BAR_ADDR(phys_addr) == PCIE_CONF_BAR_INVAL ||

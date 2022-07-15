@@ -37,12 +37,7 @@ int flash_area_open(uint8_t id, const struct flash_area **fap)
 		return -ENOENT;
 	}
 
-	if (device_get_binding(area->fa_dev_name) == NULL) {
-		return -ENODEV;
-	}
-
 	*fap = area;
-
 	return 0;
 }
 

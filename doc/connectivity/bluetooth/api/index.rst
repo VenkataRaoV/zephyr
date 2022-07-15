@@ -22,7 +22,6 @@ Bluetooth APIs
    mesh.rst
    microphone.rst
    rfcomm.rst
-   services.rst
    sdp.rst
    volume.rst
    uuid.rst

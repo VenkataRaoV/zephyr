@@ -9,11 +9,7 @@ endif()
 set(LLVM_TOOLCHAIN_PATH ${CLANG_ROOT_DIR} CACHE PATH "clang install directory")
 
 set(COMPILER clang)
-if(CONFIG_LLVM_USE_LD)
-  set(LINKER ld)
-else()
-  set(LINKER lld)
-endif()
+set(LINKER lld)
 set(BINTOOLS llvm)
 
 if("${ARCH}" STREQUAL "arm")

@@ -12,9 +12,6 @@
  */
 
 #include <ztest.h>
-
-#include "test_msgq.h"
-
 extern void test_msgq_thread(void);
 extern void test_msgq_thread_overflow(void);
 extern void test_msgq_isr(void);
@@ -60,7 +57,7 @@ extern struct k_msgq kmsgq;
 extern struct k_msgq msgq;
 extern struct k_sem end_sema;
 extern struct k_thread tdata;
-K_THREAD_STACK_DECLARE(tstack, STACK_SIZE);
+K_THREAD_STACK_EXTERN(tstack);
 
 /*test case main entry*/
 void test_main(void)

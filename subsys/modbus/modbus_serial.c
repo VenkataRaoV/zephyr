@@ -519,7 +519,7 @@ int modbus_serial_init(struct modbus_context *ctx,
 	cfg->dev = device_get_binding(cfg->dev_name);
 	if (cfg->dev == NULL) {
 		LOG_ERR("Failed to get UART device %s",
-			cfg->dev_name);
+			log_strdup(cfg->dev_name));
 		return -ENODEV;
 	}
 

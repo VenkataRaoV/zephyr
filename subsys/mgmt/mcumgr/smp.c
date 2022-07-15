@@ -10,7 +10,7 @@
 #include <zephyr/mgmt/mcumgr/buf.h>
 #include "mgmt/mgmt.h"
 #include "smp/smp.h"
-#include <zephyr/mgmt/mcumgr/smp.h>
+#include "mgmt/mcumgr/smp.h"
 #include "smp_reassembly.h"
 
 #include <zephyr/logging/log.h>
@@ -52,6 +52,19 @@ zephyr_smp_alloc_rsp(const void *req, void *arg)
 	}
 
 	return rsp_nb;
+}
+
+static void
+zephyr_smp_trim_front(void *buf, size_t len, void *arg)
+{
+	struct net_buf *nb;
+
+	nb = buf;
+	if (len > nb->len) {
+		len = nb->len;
+	}
+
+	net_buf_pull(nb, len);
 }
 
 /**
@@ -109,7 +122,7 @@ zephyr_smp_split_frag(struct net_buf **nb, void *arg, uint16_t mtu)
 		net_buf_add_mem(frag, src->data, mtu);
 
 		/* Remove fragment from total response. */
-		net_buf_pull(src, mtu);
+		zephyr_smp_trim_front(src, mtu, NULL);
 	}
 
 	return frag;
@@ -219,6 +232,7 @@ zephyr_smp_handle_reqs(struct k_work *work)
 
 static const struct mgmt_streamer_cfg zephyr_smp_cbor_cfg = {
 	.alloc_rsp = zephyr_smp_alloc_rsp,
+	.trim_front = zephyr_smp_trim_front,
 	.write_hdr = zephyr_smp_write_hdr,
 	.free_buf = zephyr_smp_free_buf,
 };

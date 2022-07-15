@@ -11,7 +11,6 @@
 #include <zephyr/init.h>
 
 #include <cavs-shim.h>
-#include <cavs-clk.h>
 #include <cavs-idc.h>
 #include "soc.h"
 
@@ -124,10 +123,6 @@ static __imr int soc_init(const struct device *dev)
 	} else {
 		power_init();
 	}
-
-#ifdef CONFIG_CAVS_CLOCK
-	cavs_clock_init();
-#endif
 
 #if CONFIG_MP_NUM_CPUS > 1
 	soc_mp_init();

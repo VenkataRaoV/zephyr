@@ -71,11 +71,13 @@ void conn_register_debug(struct net_conn *conn,
 		if (IS_ENABLED(CONFIG_NET_IPV6) &&
 		    conn->family == AF_INET6) {
 			snprintk(dst, sizeof(dst), "%s",
-				 net_sprint_ipv6_addr(&net_sin6(&conn->remote_addr)->sin6_addr));
+				 log_strdup(net_sprint_ipv6_addr(
+				    &net_sin6(&conn->remote_addr)->sin6_addr)));
 		} else if (IS_ENABLED(CONFIG_NET_IPV4) &&
 			   conn->family == AF_INET) {
 			snprintk(dst, sizeof(dst), "%s",
-				 net_sprint_ipv4_addr(&net_sin(&conn->remote_addr)->sin_addr));
+				 log_strdup(net_sprint_ipv4_addr(
+				    &net_sin(&conn->remote_addr)->sin_addr)));
 		} else {
 			snprintk(dst, sizeof(dst), "%s", "?");
 		}
@@ -87,11 +89,13 @@ void conn_register_debug(struct net_conn *conn,
 		if (IS_ENABLED(CONFIG_NET_IPV6) &&
 		    conn->family == AF_INET6) {
 			snprintk(src, sizeof(src), "%s",
-				 net_sprint_ipv6_addr(&net_sin6(&conn->local_addr)->sin6_addr));
+				 log_strdup(net_sprint_ipv6_addr(
+				    &net_sin6(&conn->local_addr)->sin6_addr)));
 		} else if (IS_ENABLED(CONFIG_NET_IPV4) &&
 			   conn->family == AF_INET) {
 			snprintk(src, sizeof(src), "%s",
-				 net_sprint_ipv4_addr(&net_sin(&conn->local_addr)->sin_addr));
+				 log_strdup(net_sprint_ipv4_addr(
+				    &net_sin(&conn->local_addr)->sin_addr)));
 		} else {
 			snprintk(src, sizeof(src), "%s", "?");
 		}
@@ -101,9 +105,9 @@ void conn_register_debug(struct net_conn *conn,
 
 	NET_DBG("[%p/%d/%u/0x%02x] remote %s/%u ",
 		conn, conn->proto, conn->family, conn->flags,
-		dst, remote_port);
+		log_strdup(dst), remote_port);
 	NET_DBG("  local %s/%u cb %p ud %p",
-		src, local_port, conn->cb, conn->user_data);
+		log_strdup(src), local_port, conn->cb, conn->user_data);
 }
 #else
 #define conn_register_debug(...)
@@ -510,15 +514,6 @@ static bool conn_are_end_points_valid(struct net_pkt *pkt,
 static enum net_verdict conn_raw_socket(struct net_pkt *pkt,
 					struct net_conn *conn, uint8_t proto)
 {
-	if (proto == ETH_P_ALL) {
-		enum net_sock_type type = net_context_get_type(conn->context);
-
-		if ((type == SOCK_DGRAM && !net_pkt_is_l2_processed(pkt)) ||
-		    (type == SOCK_RAW && net_pkt_is_l2_processed(pkt))) {
-			goto out;
-		}
-	}
-
 	if (conn->flags & NET_CONN_LOCAL_ADDR_SET) {
 		struct net_if *pkt_iface = net_pkt_iface(pkt);
 		struct sockaddr_ll *local;
@@ -552,7 +547,6 @@ static enum net_verdict conn_raw_socket(struct net_pkt *pkt,
 		return NET_OK;
 	}
 
-out:
 	return NET_CONTINUE;
 }
 

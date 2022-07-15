@@ -4,14 +4,12 @@
 
 /*
  * Copyright (c) 2020 Intel Corporation
- * Copyright (c) 2021-2022 Nordic Semiconductor ASA
+ * Copyright (c) 2021 Nordic Semiconductor ASA
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #include <zephyr/bluetooth/iso.h>
-
-#define BT_ISO_MAX_SEQ_NUM 0xFFFF
 
 struct iso_data {
 	/** BT_BUF_ISO_IN */
@@ -107,9 +105,6 @@ void bt_iso_connected(struct bt_conn *iso);
 
 /* Notify ISO channels of a disconnect event */
 void bt_iso_disconnected(struct bt_conn *iso);
-
-/* Notify ISO connected channels of security changed */
-void bt_iso_security_changed(struct bt_conn *acl, uint8_t hci_status);
 
 /* Allocate ISO PDU */
 #if defined(CONFIG_NET_BUF_LOG)

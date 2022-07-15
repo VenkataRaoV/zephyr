@@ -12,6 +12,7 @@
 / {
 	chosen {
 		zephyr,flash-controller = &msc;
+		zephyr,entropy = &trng;
 	};
 
 	cpus {
@@ -75,6 +76,13 @@
 			status = "disabled";
 			label = "USART_2";
 		};
+		trng: trng@400f0000 {
+			compatible = "silabs,gecko-trng";
+			reg = <0x400f0000 0x0400>;
+			status = "disabled";
+			interrupts = <0x1a 0x2d>;
+			label = "TRNG0";
+		};
 
 		leuart0: leuart@4004a000 { /* LEUART0 */
 			compatible = "silabs,gecko-leuart";
@@ -109,7 +117,7 @@
 
 		rtcc0: rtcc@40042000 {
 			compatible = "silabs,gecko-rtcc";
-			reg = <0x40042000 0x184>;
+			reg = <0x40042000 0x400>;
 			interrupts = <31 0>;
 			clock-frequency = <32768>;
 			prescaler = <1>;

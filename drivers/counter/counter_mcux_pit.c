@@ -6,11 +6,11 @@
 
 #define DT_DRV_COMPAT nxp_kinetis_pit
 
-#include <zephyr/drivers/counter.h>
+#include <drivers/counter.h>
 #include <fsl_pit.h>
 
 #define LOG_MODULE_NAME counter_pit
-#include <zephyr/logging/log.h>
+#include <logging/log.h>
 LOG_MODULE_REGISTER(LOG_MODULE_NAME, CONFIG_COUNTER_LOG_LEVEL);
 
 struct mcux_pit_config {

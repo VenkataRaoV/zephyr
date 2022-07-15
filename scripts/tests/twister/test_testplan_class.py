@@ -102,11 +102,12 @@ TESTDATA_PART1 = [
 def test_apply_filters_part1(class_testplan, all_testsuites_dict, platforms_list,
                              tc_attribute, tc_value, plat_attribute, plat_value, expected_discards):
     """ Testing apply_filters function of TestPlan class in Twister
-    Part 1: Response of apply_filters function have
+    Part 1: Response of apply_filters function (discard dictionary) have
             appropriate values according to the filters
     """
     if tc_attribute is None and plat_attribute is None:
         class_testplan.apply_filters()
+        assert not class_testplan.discards
 
     class_testplan.platforms = platforms_list
     class_testplan.platform_names = [p.name for p in platforms_list]
@@ -159,9 +160,8 @@ def test_apply_filters_part1(class_testplan, all_testsuites_dict, platforms_list
         class_testplan.apply_filters(exclude_platform=['demo_board_1'],
                                                  platform=['demo_board_2'])
 
-    filtered_instances = list(filter(lambda item:  item.status == "filtered", class_testplan.instances.values()))
-    for d in filtered_instances:
-        assert d.reason == expected_discards
+    for x in [expected_discards]:
+        assert x in class_testplan.discards.values()
 
 TESTDATA_PART2 = [
     ("runnable", "True", "Not runnable on device"),
@@ -193,9 +193,9 @@ def test_apply_filters_part2(class_testplan, all_testsuites_dict,
             ]
         }
     class_testplan.apply_filters(**kwargs)
-    filtered_instances = list(filter(lambda item:  item.status == "filtered", class_testplan.instances.values()))
-    for d in filtered_instances:
-        assert d.reason == expected_discards
+    assert class_testplan.discards
+    for d in class_testplan.discards.values():
+        assert d == expected_discards
 
 
 TESTDATA_PART3 = [
@@ -223,9 +223,7 @@ def test_apply_filters_part3(class_testplan, all_testsuites_dict, platforms_list
         testcase.min_flash = tc_min_flash
     class_testplan.apply_filters(exclude_platform=['demo_board_1'],
                                              platform=['demo_board_2'])
-
-    filtered_instances = list(filter(lambda item:  item.status == "filtered", class_testplan.instances.values()))
-    assert not filtered_instances
+    assert not class_testplan.discards
 
 def test_add_instances(test_data, class_testplan, all_testsuites_dict, platforms_list):
     """ Testing add_instances() function of TestPlan class in Twister

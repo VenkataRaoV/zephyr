@@ -15,6 +15,7 @@
 #include <zephyr/init.h>
 #include <string.h>
 
+#include <zephyr/zephyr.h>
 
 #include <zephyr/cache.h>
 

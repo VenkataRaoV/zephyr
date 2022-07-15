@@ -7,6 +7,7 @@
 #include <zephyr/device.h>
 #include <zephyr/init.h>
 #include <zephyr/kernel.h>
+#include <soc.h>
 #include "arm_core_mpu_dev.h"
 #include <zephyr/linker/linker-defs.h>
 #include <kernel_arch_data.h>

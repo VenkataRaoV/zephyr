@@ -19,17 +19,41 @@ LOG_MODULE_DECLARE(net_zperf_sample, LOG_LEVEL_DBG);
 static struct session sessions[SESSION_PROTO_END][SESSION_MAX];
 
 /* Get session from a given packet */
-struct session *get_session(const struct sockaddr *addr,
+struct session *get_session(struct net_pkt *pkt,
+			    union net_ip_header *ip_hdr,
+			    union net_proto_header *proto_hdr,
 			    enum session_proto proto)
 {
 	struct session *active = NULL;
 	struct session *free = NULL;
+	struct in6_addr ipv6 = { };
+	struct in_addr ipv4 = { };
+	struct net_udp_hdr *udp_hdr;
 	int i = 0;
-	const struct sockaddr_in *addr4 = (const struct sockaddr_in *)addr;
-	const struct sockaddr_in6 *addr6 = (const struct sockaddr_in6 *)addr;
+	uint16_t port;
+
+	if (!pkt) {
+		printk("Error! null pkt detected.\n");
+		return NULL;
+	}
 
 	if (proto != SESSION_TCP && proto != SESSION_UDP) {
 		printk("Error! unsupported proto.\n");
+		return NULL;
+	}
+
+	udp_hdr = proto_hdr->udp;
+
+	/* Get tuple of the remote connection */
+	port = udp_hdr->src_port;
+
+	if (net_pkt_family(pkt) == AF_INET6) {
+		net_ipv6_addr_copy_raw((uint8_t *)&ipv6, ip_hdr->ipv6->src);
+	} else if (net_pkt_family(pkt) == AF_INET) {
+		net_ipv4_addr_copy_raw((uint8_t *)&ipv4, ip_hdr->ipv4->src);
+	} else {
+		printk("Error! unsupported protocol %d\n",
+		       net_pkt_family(pkt));
 		return NULL;
 	}
 
@@ -37,26 +61,22 @@ struct session *get_session(const struct sockaddr *addr,
 	while (!active && i < SESSION_MAX) {
 		struct session *ptr = &sessions[proto][i];
 
-		if (IS_ENABLED(CONFIG_NET_IPV4) &&
-		    addr->sa_family == AF_INET &&
-		    ptr->ip.family == AF_INET &&
-		    ptr->port == addr4->sin_port &&
-		    net_ipv4_addr_cmp(&ptr->ip.in_addr, &addr4->sin_addr)) {
+#if defined(CONFIG_NET_IPV4)
+		if (ptr->port == port &&
+		    net_pkt_family(pkt) == AF_INET &&
+		    net_ipv4_addr_cmp(&ptr->ip.in_addr, &ipv4)) {
 			/* We found an active session */
 			active = ptr;
-			break;
-		}
-
-		if (IS_ENABLED(CONFIG_NET_IPV6) &&
-		    addr->sa_family == AF_INET6 &&
-		    ptr->ip.family == AF_INET6 &&
-		    ptr->port == addr6->sin6_port &&
-		    net_ipv6_addr_cmp(&ptr->ip.in6_addr, &addr6->sin6_addr)) {
+		} else
+#endif
+#if defined(CONFIG_NET_IPV6)
+		if (ptr->port == port &&
+		    net_pkt_family(pkt) == AF_INET6 &&
+		    net_ipv6_addr_cmp(&ptr->ip.in6_addr, &ipv6)) {
 			/* We found an active session */
 			active = ptr;
-			break;
-		}
-
+		} else
+#endif
 		if (!free && (ptr->state == STATE_NULL ||
 			      ptr->state == STATE_COMPLETED)) {
 			/* We found a free slot - just in case */
@@ -69,30 +89,30 @@ struct session *get_session(const struct sockaddr *addr,
 	/* If no active session then create a new one */
 	if (!active && free) {
 		active = free;
+		active->port = port;
 
-		if (IS_ENABLED(CONFIG_NET_IPV4) && addr->sa_family == AF_INET) {
-			active->port = addr4->sin_port;
-			active->ip.family = AF_INET;
-			net_ipaddr_copy(&active->ip.in_addr, &addr4->sin_addr);
-		} else if (IS_ENABLED(CONFIG_NET_IPV6) &&
-			   addr->sa_family == AF_INET6) {
-			active->port = addr6->sin6_port;
-			active->ip.family = AF_INET6;
-			net_ipaddr_copy(&active->ip.in6_addr, &addr6->sin6_addr);
+#if defined(CONFIG_NET_IPV6)
+		if (net_pkt_family(pkt) == AF_INET6) {
+			net_ipaddr_copy(&active->ip.in6_addr, &ipv6);
 		}
+#endif
+#if defined(CONFIG_NET_IPV4)
+		if (net_pkt_family(pkt) == AF_INET) {
+			net_ipaddr_copy(&active->ip.in_addr, &ipv4);
+		}
+#endif
 	}
 
 	return active;
 }
 
-/* TODO Unify session handling */
-struct session *get_tcp_session(int sock)
+struct session *get_tcp_session(struct net_context *ctx)
 {
 	struct session *free = NULL;
 	int i = 0;
 
-	if (sock < 0) {
-		printk("Error! Invalid socket.\n");
+	if (!ctx) {
+		printk("Error! null context detected.\n");
 		return NULL;
 	}
 
@@ -100,7 +120,7 @@ struct session *get_tcp_session(int sock)
 	while (i < SESSION_MAX) {
 		struct session *ptr = &sessions[SESSION_TCP][i];
 
-		if (ptr->sock == sock) {
+		if (ptr->ctx == ctx) {
 			return ptr;
 		}
 
@@ -115,7 +135,7 @@ struct session *get_tcp_session(int sock)
 	}
 
 	if (free) {
-		free->sock = sock;
+		free->ctx = ctx;
 	}
 
 	return free;

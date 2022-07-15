@@ -50,9 +50,6 @@ extern "C" {
 /** Size of the Set Identification Resolving Key (SIRK) */
 #define BT_CSIS_SET_SIRK_SIZE 16
 
-/** Size of the Resolvable Set Identifier (RSI) */
-#define BT_CSIS_RSI_SIZE                        6
-
 /* Coordinate Set Identification Service Error codes */
 /** Service is already locked */
 #define BT_CSIS_ERROR_LOCK_DENIED               0x80
@@ -96,15 +93,6 @@ struct bt_csis_cb {
 	 * @return A BT_CSIS_READ_SIRK_REQ_RSP_* response code.
 	 */
 	uint8_t (*sirk_read_req)(struct bt_conn *conn, struct bt_csis *csis);
-
-	/**
-	 * @brief Callback whenever the RSI changes.
-	 *
-	 * If this callback is not set, the stack will handle advertising of the RSI.
-	 *
-	 * @param rsi Pointer to the new 6-octet RSI data to be advertised.
-	 */
-	void (*rsi_changed)(const uint8_t rsi[BT_CSIS_RSI_SIZE]);
 };
 
 /** Register structure for Coordinated Set Identification Service */
@@ -294,22 +282,20 @@ typedef void (*bt_csis_client_lock_changed_cb)(struct bt_csis_client_csis_inst *
 					       bool locked);
 
 /**
- * @typedef bt_csis_client_ordered_access_cb_t
- * @brief Callback for bt_csis_client_ordered_access()
+ * @typedef bt_csis_client_lock_state_read_cb
+ * @brief Callback for bt_csis_client_get_lock_state()
  *
- * If any of the set members supplied to bt_csis_client_ordered_access() is
- * in the locked state, this will be called with @p locked true and @p member
- * will be the locked member, and the ordered access procedure is cancelled.
+ * If any of the set members supplied to bt_csis_client_get_lock_state() is
+ * in the locked state, this will be called with @p locked true. If any
+ * set member is in the locked state, the remaining (if any) won't be read.
  * Likewise, if any error occurs, the procedure will also be aborted.
  *
  * @param set_info  Pointer to the a specific set_info struct.
  * @param err       Error value. 0 on success, GATT error or errno on fail.
  * @param locked    Whether the lock is locked or release.
- * @param member    The locked member if @p locked is true, otherwise NULL.
  */
-typedef void (*bt_csis_client_ordered_access_cb_t)(const struct bt_csis_client_set_info *set_info,
-						   int err, bool locked,
-						   struct bt_csis_client_set_member *member);
+typedef void (*bt_csis_client_lock_state_read_cb)(const struct bt_csis_client_set_info *set_info,
+						  int err, bool locked);
 
 struct bt_csis_client_cb {
 	/* Set callbacks */
@@ -319,7 +305,7 @@ struct bt_csis_client_cb {
 
 	/* Device specific callbacks */
 	bt_csis_client_discover_cb             discover;
-	bt_csis_client_ordered_access_cb_t     ordered_access;
+	bt_csis_client_lock_state_read_cb      lock_state_read;
 };
 
 /**
@@ -341,47 +327,21 @@ bool bt_csis_client_is_set_member(uint8_t set_sirk[BT_CSIS_SET_SIRK_SIZE],
 void bt_csis_client_register_cb(struct bt_csis_client_cb *cb);
 
 /**
- * @brief Callback function definition for bt_csis_client_ordered_access()
+ * @brief Check if an array of set members are unlocked
  *
- * @param set_info   Pointer to the a specific set_info struct.
- * @param members    Array of members ordered by rank. The procedure shall be
- *                   done on the members in ascending order.
- * @param count      Number of members in @p members.
+ * This will read the set lock value on all members and respond with a single
+ * state.
  *
- * @return true if the procedures can be successfully done, or false to stop the
- *         procedure.
- */
-typedef bool (*bt_csis_client_ordered_access_t)(const struct bt_csis_client_set_info *set_info,
-						struct bt_csis_client_set_member *members[],
-						size_t count);
-
-/**
- * @brief Access Coordinated Set devices in an ordered manner as a client
- *
- * This function will read the lock state of all devices and if all devices are
- * in the unlocked state, then @p cb will be called with the same members as
- * provided by @p members, but where the members are ordered by rank
- * (if present). Once this procedure is finished or an error occurs,
- * @ref bt_csis_client_cb.ordered_access will be called.
- *
- * This procedure only works if all the members have the lock characterstic,
- * and all either has rank = 0 or unique ranks.
- *
- * If any of the members are in the locked state, the procedure will be
- * cancelled.
- *
- * This can only be done on members that are bonded.
- *
- * @param members   Array of set members to access.
+ * @param members   Array of set members to check lock state for.
  * @param count     Number of set members in @p members.
  * @param set_info  Pointer to the a specific set_info struct, as a member may
  *                  be part of multiple sets.
- * @param cb        The callback function to be called for each member.
+ *
+ * @return Return 0 on success, or an errno value on error.
  */
-int bt_csis_client_ordered_access(struct bt_csis_client_set_member *members[],
+int bt_csis_client_get_lock_state(const struct bt_csis_client_set_member **members,
 				  uint8_t count,
-				  const struct bt_csis_client_set_info *set_info,
-				  bt_csis_client_ordered_access_t cb);
+				  const struct bt_csis_client_set_info *set_info);
 
 /**
  * @brief Lock an array of set members
@@ -397,7 +357,7 @@ int bt_csis_client_ordered_access(struct bt_csis_client_set_member *members[],
  *
  * @return Return 0 on success, or an errno value on error.
  */
-int bt_csis_client_lock(struct bt_csis_client_set_member **members,
+int bt_csis_client_lock(const struct bt_csis_client_set_member **members,
 			uint8_t count,
 			const struct bt_csis_client_set_info *set_info);
 
@@ -413,7 +373,7 @@ int bt_csis_client_lock(struct bt_csis_client_set_member **members,
  *
  * @return Return 0 on success, or an errno value on error.
  */
-int bt_csis_client_release(struct bt_csis_client_set_member **members,
+int bt_csis_client_release(const struct bt_csis_client_set_member **members,
 			   uint8_t count,
 			   const struct bt_csis_client_set_info *set_info);
 

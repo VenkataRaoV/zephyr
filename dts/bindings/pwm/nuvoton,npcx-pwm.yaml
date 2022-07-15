@@ -18,11 +18,11 @@ properties:
         required: true
     pinctrl-names:
         required: true
-    pwm-channel:
-        type: int
+    drive-open-drain:
+        type: boolean
         description: |
-            A index to indicate PWM module that generates a single PWM signal.
-            Please don't overwrite it in the board-level DT driver.
+            The PWM output will be configured as open-drain. If not set,
+            defaults to push-pull.
     clock-bus:
         required: false
         type: string

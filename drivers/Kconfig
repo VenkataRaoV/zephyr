@@ -141,6 +141,4 @@ source "drivers/reset/Kconfig"
 
 source "drivers/mipi_dsi/Kconfig"
 
-source "drivers/coredump/Kconfig"
-
 endmenu

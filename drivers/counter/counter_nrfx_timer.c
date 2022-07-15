@@ -3,13 +3,13 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-#include <zephyr/drivers/counter.h>
+#include <drivers/counter.h>
 #include <hal/nrf_timer.h>
-#include <zephyr/sys/atomic.h>
+#include <sys/atomic.h>
 
 #define LOG_LEVEL CONFIG_COUNTER_LOG_LEVEL
 #define LOG_MODULE_NAME counter_timer
-#include <zephyr/logging/log.h>
+#include <logging/log.h>
 LOG_MODULE_REGISTER(LOG_MODULE_NAME, LOG_LEVEL);
 
 #define TIMER_CLOCK 16000000

@@ -24,15 +24,15 @@
  */
 
 #include <errno.h>
-#include <zephyr/sys/__assert.h>
-#include <zephyr/sys/util.h>
-#include <zephyr/device.h>
-#include <zephyr/init.h>
+#include <sys/__assert.h>
+#include <sys/util.h>
+#include <device.h>
+#include <init.h>
 #include <soc.h>
-#include <zephyr/drivers/counter.h>
-#include <zephyr/drivers/pinctrl.h>
+#include <drivers/counter.h>
+#include <drivers/pinctrl.h>
 
-#include <zephyr/logging/log.h>
+#include <logging/log.h>
 LOG_MODULE_REGISTER(counter_sam_tc, CONFIG_COUNTER_LOG_LEVEL);
 
 #define MAX_ALARMS_PER_TC_CHANNEL 2

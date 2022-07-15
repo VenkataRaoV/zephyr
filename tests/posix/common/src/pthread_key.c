@@ -122,7 +122,7 @@ static void make_keys(void)
  * multiple keys.
  */
 
-ZTEST(posix_apis, test_posix_multiple_threads_single_key)
+void test_posix_multiple_threads_single_key(void)
 {
 	int i, ret = -1;
 
@@ -171,7 +171,7 @@ ZTEST(posix_apis, test_posix_multiple_threads_single_key)
 	printk("\n");
 }
 
-ZTEST(posix_apis, test_posix_single_thread_multiple_keys)
+void test_posix_single_thread_multiple_keys(void)
 {
 	int i, ret = -1;
 

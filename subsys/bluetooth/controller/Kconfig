@@ -157,7 +157,7 @@ config BT_CTLR_DUP_FILTER_LEN
 
 config BT_CTLR_DUP_FILTER_ADV_SET_MAX
 	int "Number of Extended Advertising Sets in the scan duplicate filter"
-	depends on BT_OBSERVER && BT_CTLR_ADV_EXT && (BT_CTLR_DUP_FILTER_LEN > 0)
+	depends on BT_OBSERVER && (BT_CTLR_DUP_FILTER_LEN > 0)
 	range 1 16
 	default 1
 	help
@@ -245,7 +245,6 @@ config BT_CTLR_ISOAL_SINKS
 config BT_CTLR_ISO_VENDOR_DATA_PATH
 	bool "Vendor-specific ISO data path"
 	depends on BT_CTLR_SYNC_ISO || BT_CTLR_CONN_ISO
-	select BT_CTLR_HCI_CODEC_AND_DELAY_INFO
 
 choice BT_CTLR_TX_PWR
 	prompt "Tx Power"
@@ -416,16 +415,16 @@ endif # BT_CONN
 
 config BT_CTLR_FILTER_ACCEPT_LIST
 	bool "Filter Accept List Support"
-	default y if BT_HCI_RAW || BT_FILTER_ACCEPT_LIST
+	default y
 	help
 	  Enable support for controller Filter Accept List feature
 
 config BT_CTLR_PRIVACY
 	bool "LE Controller-based Privacy"
 	depends on BT_CTLR_PRIVACY_SUPPORT
+	default y
 	select BT_CTLR_FILTER_ACCEPT_LIST if BT_LL_SW_SPLIT
 	select BT_RPA
-	default y if BT_HCI_RAW || BT_PRIVACY
 	help
 	  Enable support for Bluetooth v4.2 LE Controller-based Privacy feature
 	  in the Controller.

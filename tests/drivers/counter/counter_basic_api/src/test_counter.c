@@ -92,7 +92,12 @@ static const char * const devices[] = {
 #ifdef CONFIG_COUNTER_MCUX_LPC_RTC
 	LABELS_FOR_DT_COMPAT(nxp_lpc_rtc)
 #endif
+#ifdef CONFIG_COUNTER_GECKO_RTCC
 	LABELS_FOR_DT_COMPAT(silabs_gecko_rtcc)
+#endif
+#ifdef CONFIG_COUNTER_GECKO_STIMER
+	LABELS_FOR_DT_COMPAT(silabs_gecko_stimer)
+#endif
 	LABELS_FOR_DT_COMPAT(st_stm32_rtc)
 #ifdef CONFIG_COUNTER_MCUX_PIT
 	LABELS_FOR_DT_COMPAT(nxp_kinetis_pit)
@@ -554,12 +559,6 @@ void test_multiple_alarms_instance(const char *dev_name)
 	if (set_top_value_capable(dev_name)) {
 		err = counter_set_top_value(dev, &top_cfg);
 		zassert_equal(0, err, "%s: Counter failed to set top value", dev_name);
-	} else {
-		/* Counter does not support top value, do not run this test
-		 * as it might take a long time to wrap and trigger the alarm
-		 * resulting in test failures.
-		 */
-		return;
 	}
 
 	k_busy_wait(3*(uint32_t)counter_ticks_to_us(dev, alarm_cfg.ticks));

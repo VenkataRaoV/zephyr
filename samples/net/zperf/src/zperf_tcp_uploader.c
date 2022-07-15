@@ -12,15 +12,17 @@ LOG_MODULE_DECLARE(net_zperf_sample, LOG_LEVEL_DBG);
 #include <errno.h>
 #include <zephyr/sys/printk.h>
 
-#include <zephyr/net/socket.h>
+#include <zephyr/net/net_pkt.h>
+#include <zephyr/net/net_ip.h>
+#include <zephyr/net/net_core.h>
 
 #include "zperf.h"
 #include "zperf_internal.h"
 
 static char sample_packet[PACKET_SIZE_MAX];
 
-void zperf_tcp_upload(const struct shell *sh,
-		      int sock,
+void zperf_tcp_upload(const struct shell *shell,
+		      struct net_context *ctx,
 		      unsigned int duration_in_ms,
 		      unsigned int packet_size,
 		      struct zperf_results *results)
@@ -31,7 +33,7 @@ void zperf_tcp_upload(const struct shell *sh,
 	uint32_t alloc_errors = 0U;
 
 	if (packet_size > PACKET_SIZE_MAX) {
-		shell_fprintf(sh, SHELL_WARNING,
+		shell_fprintf(shell, SHELL_WARNING,
 			      "Packet size too large! max size: %u\n",
 			      PACKET_SIZE_MAX);
 		packet_size = PACKET_SIZE_MAX;
@@ -41,7 +43,7 @@ void zperf_tcp_upload(const struct shell *sh,
 	start_time = k_uptime_ticks();
 	last_print_time = start_time;
 
-	shell_fprintf(sh, SHELL_NORMAL,
+	shell_fprintf(shell, SHELL_NORMAL,
 		      "New session started\n");
 
 	(void)memset(sample_packet, 'z', sizeof(sample_packet));
@@ -56,17 +58,19 @@ void zperf_tcp_upload(const struct shell *sh,
 		int ret = 0;
 
 		/* Send the packet */
-		ret = send(sock, sample_packet, packet_size, 0);
+		ret = net_context_send(ctx, sample_packet,
+				       packet_size, NULL,
+				       K_NO_WAIT, NULL);
 		if (ret < 0) {
 			if (nb_errors == 0 && ret != -ENOMEM) {
-				shell_fprintf(sh, SHELL_WARNING,
-					      "Failed to send the packet (%d)\n",
-					      errno);
+				shell_fprintf(shell, SHELL_WARNING,
+				      "Failed to send the packet (%d)\n",
+				      ret);
 			}
 
 			nb_errors++;
 
-			if (errno == -ENOMEM) {
+			if (ret == -ENOMEM) {
 				/* Ignore memory errors as we just run out of
 				 * buffers which is kind of expected if the
 				 * buffer count is not optimized for the test
@@ -99,7 +103,7 @@ void zperf_tcp_upload(const struct shell *sh,
 	results->nb_packets_errors = nb_errors;
 
 	if (alloc_errors > 0) {
-		shell_fprintf(sh, SHELL_WARNING,
+		shell_fprintf(shell, SHELL_WARNING,
 			      "There was %u network buffer allocation "
 			      "errors during send.\nConsider increasing the "
 			      "value of CONFIG_NET_BUF_TX_COUNT and\n"
@@ -107,4 +111,6 @@ void zperf_tcp_upload(const struct shell *sh,
 			      "options.\n",
 			      alloc_errors);
 	}
+
+	net_context_put(ctx);
 }

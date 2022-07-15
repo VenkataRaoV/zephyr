@@ -13,6 +13,7 @@ LOG_MODULE_REGISTER(psci);
 #include <zephyr/kernel.h>
 #include <zephyr/arch/cpu.h>
 
+#include <soc.h>
 #include <zephyr/device.h>
 #include <zephyr/init.h>
 

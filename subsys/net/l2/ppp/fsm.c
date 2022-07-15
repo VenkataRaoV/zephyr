@@ -860,7 +860,7 @@ static enum net_verdict fsm_recv_terminate_req(struct ppp_fsm *fsm, uint8_t id,
 
 			NET_DBG("[%s/%p] %s (%s)",
 				fsm->name, fsm, "Terminated by peer",
-				fsm->terminate_reason);
+				log_strdup(fsm->terminate_reason));
 		} else {
 			NET_DBG("[%s/%p] Terminated by peer",
 				fsm->name, fsm);

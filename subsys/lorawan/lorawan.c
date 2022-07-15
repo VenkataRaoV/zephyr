@@ -64,47 +64,46 @@ static bool lorawan_adr_enable;
 
 static sys_slist_t dl_callbacks;
 
-static LoRaMacPrimitives_t mac_primitives;
-static LoRaMacCallback_t mac_callbacks;
+static LoRaMacPrimitives_t macPrimitives;
+static LoRaMacCallback_t macCallbacks;
 
 static LoRaMacEventInfoStatus_t last_mcps_confirm_status;
 static LoRaMacEventInfoStatus_t last_mlme_confirm_status;
 static LoRaMacEventInfoStatus_t last_mcps_indication_status;
 static LoRaMacEventInfoStatus_t last_mlme_indication_status;
 
-static uint8_t (*get_battery_level_user)(void);
+static uint8_t (*getBatteryLevelUser)(void);
 static void (*dr_change_cb)(enum lorawan_datarate dr);
 
-/* implementation required by the soft-se (software secure element) */
 void BoardGetUniqueId(uint8_t *id)
 {
 	/* Do not change the default value */
 }
 
-static uint8_t get_battery_level(void)
+static uint8_t getBatteryLevelLocal(void)
 {
-	if (get_battery_level_user != NULL) {
-		return get_battery_level_user();
+	if (getBatteryLevelUser != NULL) {
+		return getBatteryLevelUser();
 	}
 
 	return 255;
 }
 
-static void mac_process_notify(void)
+static void OnMacProcessNotify(void)
 {
 	LoRaMacProcess();
 }
 
 static void datarate_observe(bool force_notification)
 {
-	MibRequestConfirm_t mib_req;
+	MibRequestConfirm_t mibGet;
 
-	mib_req.Type = MIB_CHANNELS_DATARATE;
-	LoRaMacMibGetRequestConfirm(&mib_req);
+	mibGet.Type = MIB_CHANNELS_DATARATE;
+	LoRaMacMibGetRequestConfirm(&mibGet);
 
-	if ((mib_req.Param.ChannelsDatarate != current_datarate) ||
+	if ((mibGet.Param.ChannelsDatarate != current_datarate) ||
 	    (force_notification)) {
-		current_datarate = mib_req.Param.ChannelsDatarate;
+		current_datarate = mibGet.Param.ChannelsDatarate;
 		if (dr_change_cb) {
 			dr_change_cb(current_datarate);
 		}
@@ -112,14 +111,14 @@ static void datarate_observe(bool force_notification)
 	}
 }
 
-static void mcps_confirm_handler(McpsConfirm_t *mcps_confirm)
+static void McpsConfirm(McpsConfirm_t *mcpsConfirm)
 {
 	LOG_DBG("Received McpsConfirm (for McpsRequest %d)",
-		mcps_confirm->McpsRequest);
+		mcpsConfirm->McpsRequest);
 
-	if (mcps_confirm->Status != LORAMAC_EVENT_INFO_STATUS_OK) {
+	if (mcpsConfirm->Status != LORAMAC_EVENT_INFO_STATUS_OK) {
 		LOG_ERR("McpsRequest failed : %s",
-			lorawan_eventinfo2str(mcps_confirm->Status));
+			lorawan_eventinfo2str(mcpsConfirm->Status));
 	} else {
 		LOG_DBG("McpsRequest success!");
 	}
@@ -129,19 +128,19 @@ static void mcps_confirm_handler(McpsConfirm_t *mcps_confirm)
 		datarate_observe(false);
 	}
 
-	last_mcps_confirm_status = mcps_confirm->Status;
+	last_mcps_confirm_status = mcpsConfirm->Status;
 	k_sem_give(&mcps_confirm_sem);
 }
 
-static void mcps_indication_handler(McpsIndication_t *mcps_indication)
+static void McpsIndication(McpsIndication_t *mcpsIndication)
 {
 	struct lorawan_downlink_cb *cb;
 
-	LOG_DBG("Received McpsIndication %d", mcps_indication->McpsIndication);
+	LOG_DBG("Received McpsIndication %d", mcpsIndication->McpsIndication);
 
-	if (mcps_indication->Status != LORAMAC_EVENT_INFO_STATUS_OK) {
+	if (mcpsIndication->Status != LORAMAC_EVENT_INFO_STATUS_OK) {
 		LOG_ERR("McpsIndication failed : %s",
-			lorawan_eventinfo2str(mcps_indication->Status));
+			lorawan_eventinfo2str(mcpsIndication->Status));
 		return;
 	}
 
@@ -153,36 +152,36 @@ static void mcps_indication_handler(McpsIndication_t *mcps_indication)
 	/* Iterate over all registered downlink callbacks */
 	SYS_SLIST_FOR_EACH_CONTAINER(&dl_callbacks, cb, node) {
 		if ((cb->port == LW_RECV_PORT_ANY) ||
-		    (cb->port == mcps_indication->Port)) {
-			cb->cb(mcps_indication->Port,
-			       !!mcps_indication->FramePending,
-			       mcps_indication->Rssi, mcps_indication->Snr,
-			       mcps_indication->BufferSize,
-			       mcps_indication->Buffer);
+		    (cb->port == mcpsIndication->Port)) {
+			cb->cb(mcpsIndication->Port,
+			       !!mcpsIndication->FramePending,
+			       mcpsIndication->Rssi, mcpsIndication->Snr,
+			       mcpsIndication->BufferSize,
+			       mcpsIndication->Buffer);
 		}
 	}
 
-	last_mcps_indication_status = mcps_indication->Status;
+	last_mcps_indication_status = mcpsIndication->Status;
 }
 
-static void mlme_confirm_handler(MlmeConfirm_t *mlme_confirm)
+static void MlmeConfirm(MlmeConfirm_t *mlmeConfirm)
 {
-	MibRequestConfirm_t mib_req;
+	MibRequestConfirm_t mibGet;
 
 	LOG_DBG("Received MlmeConfirm (for MlmeRequest %d)",
-		mlme_confirm->MlmeRequest);
+		mlmeConfirm->MlmeRequest);
 
-	if (mlme_confirm->Status != LORAMAC_EVENT_INFO_STATUS_OK) {
+	if (mlmeConfirm->Status != LORAMAC_EVENT_INFO_STATUS_OK) {
 		LOG_ERR("MlmeConfirm failed : %s",
-			lorawan_eventinfo2str(mlme_confirm->Status));
+			lorawan_eventinfo2str(mlmeConfirm->Status));
 		goto out_sem;
 	}
 
-	switch (mlme_confirm->MlmeRequest) {
+	switch (mlmeConfirm->MlmeRequest) {
 	case MLME_JOIN:
-		mib_req.Type = MIB_DEV_ADDR;
-		LoRaMacMibGetRequestConfirm(&mib_req);
-		LOG_INF("Joined network! DevAddr: %08x", mib_req.Param.DevAddr);
+		mibGet.Type = MIB_DEV_ADDR;
+		LoRaMacMibGetRequestConfirm(&mibGet);
+		LOG_INF("Joined network! DevAddr: %08x", mibGet.Param.DevAddr);
 		break;
 	case MLME_LINK_CHECK:
 		/* Not implemented */
@@ -193,14 +192,14 @@ static void mlme_confirm_handler(MlmeConfirm_t *mlme_confirm)
 	}
 
 out_sem:
-	last_mlme_confirm_status = mlme_confirm->Status;
+	last_mlme_confirm_status = mlmeConfirm->Status;
 	k_sem_give(&mlme_confirm_sem);
 }
 
-static void mlme_indication_handler(MlmeIndication_t *mlme_indication)
+static void MlmeIndication(MlmeIndication_t *mlmeIndication)
 {
-	LOG_DBG("Received MlmeIndication %d", mlme_indication->MlmeIndication);
-	last_mlme_indication_status = mlme_indication->Status;
+	LOG_DBG("Received MlmeIndication %d", mlmeIndication->MlmeIndication);
+	last_mlme_indication_status = mlmeIndication->Status;
 }
 
 static LoRaMacStatus_t lorawan_join_otaa(
@@ -363,35 +362,28 @@ out:
 
 int lorawan_set_class(enum lorawan_class dev_class)
 {
-	MibRequestConfirm_t mib_req;
-	DeviceClass_t current_class;
 	LoRaMacStatus_t status;
+	MibRequestConfirm_t mib_req;
 
 	mib_req.Type = MIB_DEVICE_CLASS;
-	LoRaMacMibGetRequestConfirm(&mib_req);
-	current_class = mib_req.Param.Class;
 
 	switch (dev_class) {
 	case LORAWAN_CLASS_A:
 		mib_req.Param.Class = CLASS_A;
 		break;
 	case LORAWAN_CLASS_B:
-		LOG_ERR("Class B not supported yet!");
-		return -ENOTSUP;
 	case LORAWAN_CLASS_C:
-		mib_req.Param.Class = CLASS_C;
-		break;
+		LOG_ERR("Device class not supported yet!");
+		return -ENOTSUP;
 	default:
 		return -EINVAL;
 	}
 
-	if (mib_req.Param.Class != current_class) {
-		status = LoRaMacMibSetRequestConfirm(&mib_req);
-		if (status != LORAMAC_STATUS_OK) {
-			LOG_ERR("Failed to set device class: %s",
-				lorawan_status2str(status));
-			return lorawan_status2errno(status);
-		}
+	status = LoRaMacMibSetRequestConfirm(&mib_req);
+	if (status != LORAMAC_STATUS_OK) {
+		LOG_ERR("Failed to set device class: %s",
+			lorawan_status2str(status));
+		return lorawan_status2errno(status);
 	}
 
 	return 0;
@@ -423,23 +415,23 @@ int lorawan_set_datarate(enum lorawan_datarate dr)
 void lorawan_get_payload_sizes(uint8_t *max_next_payload_size,
 			       uint8_t *max_payload_size)
 {
-	LoRaMacTxInfo_t tx_info;
+	LoRaMacTxInfo_t txInfo;
 
 	/* QueryTxPossible cannot fail */
-	(void) LoRaMacQueryTxPossible(0, &tx_info);
+	(void) LoRaMacQueryTxPossible(0, &txInfo);
 
-	*max_next_payload_size = tx_info.MaxPossibleApplicationDataSize;
-	*max_payload_size = tx_info.CurrentPossiblePayloadSize;
+	*max_next_payload_size = txInfo.MaxPossibleApplicationDataSize;
+	*max_payload_size = txInfo.CurrentPossiblePayloadSize;
 }
 
 enum lorawan_datarate lorawan_get_min_datarate(void)
 {
-	MibRequestConfirm_t mib_req;
+	MibRequestConfirm_t mibGet;
 
-	mib_req.Type = MIB_CHANNELS_MIN_TX_DATARATE;
-	LoRaMacMibGetRequestConfirm(&mib_req);
+	mibGet.Type = MIB_CHANNELS_MIN_TX_DATARATE;
+	LoRaMacMibGetRequestConfirm(&mibGet);
 
-	return mib_req.Param.ChannelsMinTxDatarate;
+	return mibGet.Param.ChannelsMinTxDatarate;
 }
 
 void lorawan_enable_adr(bool enable)
@@ -472,8 +464,8 @@ int lorawan_send(uint8_t port, uint8_t *data, uint8_t len,
 		 enum lorawan_message_type type)
 {
 	LoRaMacStatus_t status;
-	McpsReq_t mcps_req;
-	LoRaMacTxInfo_t tx_info;
+	McpsReq_t mcpsReq;
+	LoRaMacTxInfo_t txInfo;
 	int ret = 0;
 	bool empty_frame = false;
 
@@ -483,7 +475,7 @@ int lorawan_send(uint8_t port, uint8_t *data, uint8_t len,
 
 	k_mutex_lock(&lorawan_send_mutex, K_FOREVER);
 
-	status = LoRaMacQueryTxPossible(len, &tx_info);
+	status = LoRaMacQueryTxPossible(len, &txInfo);
 	if (status != LORAMAC_STATUS_OK) {
 		/*
 		 * If status indicates an error, then most likely the payload
@@ -496,26 +488,26 @@ int lorawan_send(uint8_t port, uint8_t *data, uint8_t len,
 		LOG_ERR("LoRaWAN Query Tx Possible Failed: %s",
 			lorawan_status2str(status));
 		empty_frame = true;
-		mcps_req.Type = MCPS_UNCONFIRMED;
-		mcps_req.Req.Unconfirmed.fBuffer = NULL;
-		mcps_req.Req.Unconfirmed.fBufferSize = 0;
-		mcps_req.Req.Unconfirmed.Datarate = DR_0;
+		mcpsReq.Type = MCPS_UNCONFIRMED;
+		mcpsReq.Req.Unconfirmed.fBuffer = NULL;
+		mcpsReq.Req.Unconfirmed.fBufferSize = 0;
+		mcpsReq.Req.Unconfirmed.Datarate = DR_0;
 	} else {
 		switch (type) {
 		case LORAWAN_MSG_UNCONFIRMED:
-			mcps_req.Type = MCPS_UNCONFIRMED;
+			mcpsReq.Type = MCPS_UNCONFIRMED;
 			break;
 		case LORAWAN_MSG_CONFIRMED:
-			mcps_req.Type = MCPS_CONFIRMED;
+			mcpsReq.Type = MCPS_CONFIRMED;
 			break;
 		}
-		mcps_req.Req.Unconfirmed.fPort = port;
-		mcps_req.Req.Unconfirmed.fBuffer = data;
-		mcps_req.Req.Unconfirmed.fBufferSize = len;
-		mcps_req.Req.Unconfirmed.Datarate = current_datarate;
+		mcpsReq.Req.Unconfirmed.fPort = port;
+		mcpsReq.Req.Unconfirmed.fBuffer = data;
+		mcpsReq.Req.Unconfirmed.fBufferSize = len;
+		mcpsReq.Req.Unconfirmed.Datarate = current_datarate;
 	}
 
-	status = LoRaMacMcpsRequest(&mcps_req);
+	status = LoRaMacMcpsRequest(&mcpsReq);
 	if (status != LORAMAC_STATUS_OK) {
 		LOG_ERR("LoRaWAN Send failed: %s", lorawan_status2str(status));
 		ret = lorawan_status2errno(status);
@@ -552,7 +544,7 @@ int lorawan_set_battery_level_callback(uint8_t (*battery_lvl_cb)(void))
 		return -EINVAL;
 	}
 
-	get_battery_level_user = battery_lvl_cb;
+	getBatteryLevelUser = battery_lvl_cb;
 
 	return 0;
 }
@@ -603,22 +595,22 @@ static int lorawan_init(const struct device *dev)
 
 	sys_slist_init(&dl_callbacks);
 
-	mac_primitives.MacMcpsConfirm = mcps_confirm_handler;
-	mac_primitives.MacMcpsIndication = mcps_indication_handler;
-	mac_primitives.MacMlmeConfirm = mlme_confirm_handler;
-	mac_primitives.MacMlmeIndication = mlme_indication_handler;
-	mac_callbacks.GetBatteryLevel = get_battery_level;
-	mac_callbacks.GetTemperatureLevel = NULL;
+	macPrimitives.MacMcpsConfirm = McpsConfirm;
+	macPrimitives.MacMcpsIndication = McpsIndication;
+	macPrimitives.MacMlmeConfirm = MlmeConfirm;
+	macPrimitives.MacMlmeIndication = MlmeIndication;
+	macCallbacks.GetBatteryLevel = getBatteryLevelLocal;
+	macCallbacks.GetTemperatureLevel = NULL;
 
 	if (IS_ENABLED(CONFIG_LORAWAN_NVM_NONE)) {
-		mac_callbacks.NvmDataChange = NULL;
+		macCallbacks.NvmDataChange = NULL;
 	} else {
-		mac_callbacks.NvmDataChange = lorawan_nvm_data_mgmt_event;
+		macCallbacks.NvmDataChange = lorawan_nvm_data_mgmt_event;
 	}
 
-	mac_callbacks.MacProcessNotify = mac_process_notify;
+	macCallbacks.MacProcessNotify = OnMacProcessNotify;
 
-	status = LoRaMacInitialization(&mac_primitives, &mac_callbacks,
+	status = LoRaMacInitialization(&macPrimitives, &macCallbacks,
 				       LORAWAN_REGION);
 	if (status != LORAMAC_STATUS_OK) {
 		LOG_ERR("LoRaMacInitialization failed: %s",

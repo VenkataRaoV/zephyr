@@ -62,7 +62,6 @@ struct twi_msg {
 
 /* Device run time data */
 struct i2c_sam_twi_dev_data {
-	struct k_sem lock;
 	struct k_sem sem;
 	struct twi_msg msg;
 };
@@ -102,7 +101,6 @@ static int i2c_clk_set(Twi *const twi, uint32_t speed)
 static int i2c_sam_twi_configure(const struct device *dev, uint32_t config)
 {
 	const struct i2c_sam_twi_dev_cfg *const dev_cfg = dev->config;
-	struct i2c_sam_twi_dev_data *const dev_data = dev->data;
 	Twi *const twi = dev_cfg->regs;
 	uint32_t bitrate;
 	int ret;
@@ -131,12 +129,10 @@ static int i2c_sam_twi_configure(const struct device *dev, uint32_t config)
 		return -EIO;
 	}
 
-	k_sem_take(&dev_data->lock, K_FOREVER);
-
 	/* Setup clock waveform */
 	ret = i2c_clk_set(twi, bitrate);
 	if (ret < 0) {
-		goto unlock;
+		return ret;
 	}
 
 	/* Disable Slave Mode */
@@ -145,11 +141,7 @@ static int i2c_sam_twi_configure(const struct device *dev, uint32_t config)
 	/* Enable Master Mode */
 	twi->TWI_CR = TWI_CR_MSEN;
 
-	ret = 0;
-unlock:
-	k_sem_give(&dev_data->lock);
-
-	return ret;
+	return 0;
 }
 
 static void write_msg_start(Twi *const twi, struct twi_msg *msg, uint8_t daddr)
@@ -187,13 +179,11 @@ static int i2c_sam_twi_transfer(const struct device *dev,
 	const struct i2c_sam_twi_dev_cfg *const dev_cfg = dev->config;
 	struct i2c_sam_twi_dev_data *const dev_data = dev->data;
 	Twi *const twi = dev_cfg->regs;
-	int ret;
 
 	__ASSERT_NO_MSG(msgs);
 	if (!num_msgs) {
 		return 0;
 	}
-	k_sem_take(&dev_data->lock, K_FOREVER);
 
 	/* Clear pending interrupts, such as NACK. */
 	(void)twi->TWI_SR;
@@ -232,16 +222,11 @@ static int i2c_sam_twi_transfer(const struct device *dev,
 
 		if (dev_data->msg.twi_sr > 0) {
 			/* Something went wrong */
-			ret = -EIO;
-			goto unlock;
+			return -EIO;
 		}
 	}
 
-	ret = 0;
-unlock:
-	k_sem_give(&dev_data->lock);
-
-	return ret;
+	return 0;
 }
 
 static void i2c_sam_twi_isr(const struct device *dev)
@@ -314,8 +299,7 @@ static int i2c_sam_twi_initialize(const struct device *dev)
 	/* Configure interrupts */
 	dev_cfg->irq_config();
 
-	/* Initialize semaphores */
-	k_sem_init(&dev_data->lock, 1, 1);
+	/* Initialize semaphore */
 	k_sem_init(&dev_data->sem, 0, 1);
 
 	/* Connect pins to the peripheral */

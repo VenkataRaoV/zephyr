@@ -58,7 +58,7 @@ void *recursive_mutex_entry(void *p1)
  *	    and pthread_mutex_lock are tested with mutex type being
  *	    normal.
  */
-ZTEST(posix_apis, test_posix_normal_mutex)
+void test_posix_normal_mutex(void)
 {
 	pthread_t thread_1;
 	pthread_attr_t attr;
@@ -117,7 +117,7 @@ ZTEST(posix_apis, test_posix_normal_mutex)
  *	    twice and unlocked for the same number of time.
  *
  */
-ZTEST(posix_apis, test_posix_recursive_mutex)
+void test_posix_recursive_mutex(void)
 {
 	pthread_t thread_2;
 	pthread_attr_t attr2;

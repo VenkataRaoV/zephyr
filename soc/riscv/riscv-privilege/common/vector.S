@@ -12,7 +12,7 @@ GTEXT(__start)
 
 /* imports */
 GTEXT(__initialize)
-GTEXT(_isr_wrapper)
+GTEXT(__irq_wrapper)
 
 SECTION_FUNC(vectors, __start)
 #if defined(CONFIG_RISCV_GP)
@@ -43,9 +43,9 @@ SECTION_FUNC(vectors, __start)
 #else
 	/*
 	 * Set mtvec (Machine Trap-Vector Base-Address Register)
-	 * to _isr_wrapper.
+	 * to __irq_wrapper.
 	 */
-	la t0, _isr_wrapper
+	la t0, __irq_wrapper
 #endif
 
 	csrw mtvec, t0
@@ -59,6 +59,6 @@ SECTION_FUNC(reset,  __ivt)
 	.option norvc
 	.balign 0x100 /* must be 256 byte aligned per specification */
 	.rept (CONFIG_NUM_IRQS)
-	j _isr_wrapper
+	j __irq_wrapper
 	.endr
 #endif

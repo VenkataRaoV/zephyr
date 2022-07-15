@@ -6,12 +6,12 @@
 
 #define DT_DRV_COMPAT arm_cmsdk_dtimer
 
-#include <zephyr/drivers/counter.h>
-#include <zephyr/device.h>
+#include <drivers/counter.h>
+#include <device.h>
 #include <errno.h>
-#include <zephyr/init.h>
+#include <init.h>
 #include <soc.h>
-#include <zephyr/drivers/clock_control/arm_clock_control.h>
+#include <drivers/clock_control/arm_clock_control.h>
 
 #include "dualtimer_cmsdk_apb.h"
 

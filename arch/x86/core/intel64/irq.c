@@ -26,7 +26,7 @@ unsigned char _irq_to_interrupt_vector[CONFIG_MAX_IRQ_LINES];
 
 #define NR_IRQ_VECTORS (IV_NR_VECTORS - IV_IRQS)  /* # vectors free for IRQs */
 
-void (*x86_irq_funcs[NR_IRQ_VECTORS])(const void *arg);
+void (*x86_irq_funcs[NR_IRQ_VECTORS])(const void *);
 const void *x86_irq_args[NR_IRQ_VECTORS];
 
 #if defined(CONFIG_INTEL_VTD_ICTL)

@@ -262,6 +262,10 @@ out:
 static enum net_verdict interface_recv(struct net_if *iface,
 				       struct net_pkt *pkt)
 {
+	struct ipip_context *ctx = net_if_get_device(iface)->data;
+
+	ARG_UNUSED(ctx);
+
 	if (DEBUG_RX) {
 		char str[sizeof("RX iface xx")];
 
@@ -411,7 +415,7 @@ static int interface_attach(struct net_if *iface, struct net_if *lower_iface)
 					      0);
 		if (!ifaddr) {
 			NET_ERR("Cannot add %s address to interface %p",
-				net_sprint_ipv6_addr(&iid),
+				log_strdup(net_sprint_ipv6_addr(&iid)),
 				iface);
 		}
 	}
@@ -452,7 +456,7 @@ static int interface_set_config(struct net_if *iface,
 
 			NET_DBG("Interface %d peer address %s attached to %d",
 				net_if_get_by_iface(iface),
-				addr_str,
+				log_strdup(addr_str),
 				net_if_get_by_iface(ctx->attached_to));
 
 			ctx->my4addr = NULL;
@@ -481,7 +485,7 @@ static int interface_set_config(struct net_if *iface,
 
 			NET_DBG("Interface %d peer address %s attached to %d",
 				net_if_get_by_iface(iface),
-				addr_str,
+				log_strdup(addr_str),
 				net_if_get_by_iface(ctx->attached_to));
 
 			ctx->my6addr = NULL;

@@ -28,25 +28,19 @@ struct si7006_data {
 	uint16_t humidity;
 };
 
-struct si7006_config {
-	struct i2c_dt_spec i2c;
-};
-
 /**
  * @brief function to get relative humidity
  *
  * @return int 0 on success
  */
-static int si7006_get_humidity(const struct device *dev)
+static int si7006_get_humidity(const struct device *i2c_dev,
+			       struct si7006_data *si_data)
 {
-	struct si7006_data *si_data = dev->data;
-	const struct si7006_config *config = dev->config;
 	int retval;
 	uint8_t hum[2];
 
-	retval = i2c_burst_read_dt(&config->i2c,
-				   SI7006_MEAS_REL_HUMIDITY_MASTER_MODE, hum,
-				   sizeof(hum));
+	retval = i2c_burst_read(i2c_dev, DT_INST_REG_ADDR(0),
+		SI7006_MEAS_REL_HUMIDITY_MASTER_MODE, hum, sizeof(hum));
 
 	if (retval == 0) {
 		si_data->humidity = (hum[0] << 8) | hum[1];
@@ -66,15 +60,14 @@ static int si7006_get_humidity(const struct device *dev)
  * @return int 0 on success
  */
 
-static int si7006_get_old_temperature(const struct device *dev)
+static int si7006_get_old_temperature(const struct device *i2c_dev,
+				      struct si7006_data *si_data)
 {
-	struct si7006_data *si_data = dev->data;
-	const struct si7006_config *config = dev->config;
 	uint8_t temp[2];
 	int retval;
 
-	retval = i2c_burst_read_dt(&config->i2c, SI7006_READ_OLD_TEMP, temp,
-				   sizeof(temp));
+	retval = i2c_burst_read(i2c_dev, DT_INST_REG_ADDR(0),
+		SI7006_READ_OLD_TEMP, temp, sizeof(temp));
 
 	if (retval == 0) {
 		si_data->temperature = (temp[0] << 8) | temp[1];
@@ -94,10 +87,11 @@ static int si7006_sample_fetch(const struct device *dev,
 			       enum sensor_channel chan)
 {
 	int retval;
+	struct si7006_data *si_data = dev->data;
 
-	retval = si7006_get_humidity(dev);
+	retval = si7006_get_humidity(si_data->i2c_dev, si_data);
 	if (retval == 0) {
-		retval = si7006_get_old_temperature(dev);
+		retval = si7006_get_old_temperature(si_data->i2c_dev, si_data);
 	}
 
 	return retval;
@@ -154,11 +148,14 @@ static const struct sensor_driver_api si7006_api = {
 
 static int si7006_init(const struct device *dev)
 {
-	const struct si7006_config *config = dev->config;
+	struct si7006_data *drv_data = dev->data;
 
-	if (!device_is_ready(config->i2c.bus)) {
-		LOG_ERR("Bus device is not ready");
-		return -ENODEV;
+	drv_data->i2c_dev = device_get_binding(
+		DT_INST_BUS_LABEL(0));
+
+	if (!drv_data->i2c_dev) {
+		LOG_ERR("i2c master not found.");
+		return -EINVAL;
 	}
 
 	LOG_DBG("si7006 init ok");
@@ -168,9 +165,5 @@ static int si7006_init(const struct device *dev)
 
 static struct si7006_data si_data;
 
-static const struct si7006_config si7006_config_inst = {
-	.i2c = I2C_DT_SPEC_INST_GET(0),
-};
-
-DEVICE_DT_INST_DEFINE(0, si7006_init, NULL, &si_data, &si7006_config_inst,
-		      POST_KERNEL, CONFIG_SENSOR_INIT_PRIORITY, &si7006_api);
+DEVICE_DT_INST_DEFINE(0, si7006_init, NULL,
+	&si_data, NULL, POST_KERNEL, CONFIG_SENSOR_INIT_PRIORITY, &si7006_api);

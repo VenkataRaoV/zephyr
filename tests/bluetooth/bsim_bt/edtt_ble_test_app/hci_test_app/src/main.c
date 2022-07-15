@@ -21,7 +21,6 @@
 #include <zephyr/bluetooth/l2cap.h>
 #include <zephyr/bluetooth/hci_vs.h>
 #include <zephyr/bluetooth/hci_raw.h>
-#include <zephyr/bluetooth/iso.h>
 
 #include "edtt_driver.h"
 #include "bs_tracing.h"
@@ -200,8 +199,7 @@ NET_BUF_POOL_FIXED_DEFINE(data_pool, CONFIG_BT_CTLR_RX_BUFFERS + 14,
 static K_FIFO_DEFINE(data_queue);
 #if defined(CONFIG_BT_ISO)
 NET_BUF_POOL_FIXED_DEFINE(iso_data_pool, CONFIG_BT_ISO_RX_BUF_COUNT + 14,
-			  BT_ISO_SDU_BUF_SIZE(CONFIG_BT_ISO_RX_MTU) +
-			  sizeof(uint32_t), 8, NULL);
+			  CONFIG_BT_ISO_RX_MTU + 4, NULL);
 static K_FIFO_DEFINE(iso_data_queue);
 #endif /* CONFIG_BT_ISO */
 
